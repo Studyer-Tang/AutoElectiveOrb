@@ -1,0 +1,28 @@
+# Local credentials, runtime state and generated configuration
+*.ini
+settings.json
+*.log
+*.jsonl
+data/
+cache/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+runtime/
+
+# Build and release output
+AutoElectiveOrb.exe
+dist/
+release/
+*.zip
+
+# Editor and operating-system files
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+Thumbs.db
+.DS_Store

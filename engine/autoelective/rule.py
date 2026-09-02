@@ -1,0 +1,34 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# filename: rule.py
+# modified: 2025-03-31
+
+class Mutex(object):
+
+    __slots__ = ["_cids",]
+
+    def __init__(self, cids):
+        self._cids = cids
+
+    @property
+    def cids(self):
+        return self._cids
+
+
+class Delay(object):
+
+    __slots__ = ["_cid","_threshold"]
+
+    def __init__(self, cid, threshold):
+        if threshold <= 0:
+            raise ValueError("threshold must be positive")
+        self._cid = cid
+        self._threshold = threshold
+
+    @property
+    def cid(self):
+        return self._cid
+
+    @property
+    def threshold(self):
+        return self._threshold
