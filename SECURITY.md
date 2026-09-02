@@ -13,3 +13,7 @@ Before reporting a bug, remove student IDs, cookies, tokens, course selections, 
 ## Reporting a vulnerability
 
 Please open a GitHub security advisory instead of publishing credentials or an exploitable security issue in a public issue.
+
+# Release signing
+
+Official tagged releases are required to carry a valid Windows Authenticode signature. Signing keys and certificate passwords must be stored only as encrypted GitHub Actions secrets or in a hardware/cloud signing service; they must never be committed to this repository. Each release also includes a SHA-256 checksum file.

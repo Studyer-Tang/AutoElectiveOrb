@@ -17,6 +17,10 @@ AutoElectiveOrb.exe
 dist/
 release/
 *.zip
+*.pfx
+*.p12
+*.cer
+*.key
 
 # Editor and operating-system files
 .vs/

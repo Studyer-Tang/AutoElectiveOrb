@@ -91,7 +91,21 @@ build.cmd
 
 ## 发布
 
-推送 `v*` 标签（例如 `v1.0.0`）会运行测试、编译程序、加入官方 CPython 3.12 embeddable runtime，并发布 `AutoElectiveOrb-windows-x64.zip`。也可在 Actions 页面手动运行工作流生成构建产物。
+推送 `v*` 标签（例如 `v1.0.1`）会运行测试、编译程序、对 EXE 进行 Authenticode 签名和校验、加入官方 CPython 3.12 embeddable runtime，并发布 ZIP 与 SHA-256 校验文件。为防止误发，正式标签在没有签名证书时会直接停止；Actions 页面手动运行仍可生成未签名的测试构建。
+
+### 配置 Windows 代码签名
+
+公开发布应使用受信任 CA 颁发的 OV/EV 代码签名证书，或使用 SignPath Foundation 等面向开源项目的受信任签名服务。自签名证书仅适合本机开发测试，不能让其他电脑自动信任发布者，也不能可靠消除 SmartScreen 提示。
+
+使用可导出的 PFX 证书时，在仓库 **Settings → Secrets and variables → Actions** 中配置：
+
+- Secret `WINDOWS_CERTIFICATE_BASE64`：PFX 文件的 Base64 内容。
+- Secret `WINDOWS_CERTIFICATE_PASSWORD`：PFX 密码。
+- 可选 Variable `WINDOWS_TIMESTAMP_URL`：证书提供商给出的 RFC 3161 时间戳地址；未配置时使用 DigiCert 公共时间戳服务。
+
+不要把 PFX、私钥、密码或 Base64 内容提交到仓库、Issue、聊天记录或构建产物。工作流只在 GitHub 托管的临时 Windows 运行器中恢复证书，签名完成后会删除证书文件和证书存储中的临时副本。
+
+可在 Windows 中右键发布包内的 `AutoElectiveOrb.exe`，打开 **属性 → 数字签名** 查看发布者和时间戳；也可核对同一 Release 中的 `.sha256` 文件。已发布的 `v1.0.0` 是历史未签名版本，配置证书后应发布新的版本标签，不要覆盖旧文件。
 
 ## 许可证与致谢
 
