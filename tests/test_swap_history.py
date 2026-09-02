@@ -7,8 +7,8 @@ import unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "engine"))
 
-from autoelective.course import Course  # noqa: E402
-from autoelective import swap_history  # noqa: E402
+from elective_orb_core.course import Course  # noqa: E402
+from elective_orb_core import swap_history  # noqa: E402
 
 
 class SwapHistoryTests(unittest.TestCase):

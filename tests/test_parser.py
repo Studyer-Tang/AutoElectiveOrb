@@ -6,13 +6,13 @@ import unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "engine"))
 
-from autoelective.parser import (  # noqa: E402
+from elective_orb_core.parser import (  # noqa: E402
     get_courses,
     get_courses_with_detail,
     get_table_header,
     get_tables,
 )
-from autoelective.parser import get_tree  # noqa: E402
+from elective_orb_core.parser import get_tree  # noqa: E402
 
 
 class ParserTests(unittest.TestCase):

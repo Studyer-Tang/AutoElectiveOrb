@@ -495,7 +495,7 @@ def run_elective_loop():
 
     ## print header
 
-    header = "# PKU Auto-Elective Tool v%s (%s) #" % (__version__, __date__)
+    header = "# AutoElective Orb Engine v%s (%s) #" % (__version__, __date__)
     line = "#" + "-" * (len(header) - 2) + "#"
 
     cout.info(line)

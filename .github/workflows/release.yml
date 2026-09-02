@@ -123,7 +123,7 @@ jobs:
           Expand-Archive "python-embed.zip" -DestinationPath "$package/runtime"
           @("python312.zip", ".", "Lib/site-packages", "import site") | Set-Content "$package/runtime/python312._pth" -Encoding ascii
           python -m pip install --target "$package/runtime/Lib/site-packages" -r requirements.txt
-          Get-ChildItem $package -Directory -Filter __pycache__ -Recurse | Remove-Item -Recurse -Force
+          & "$package/runtime/python.exe" -m compileall -q "$package/engine"
           Compress-Archive "$package/*" "dist/AutoElectiveOrb-windows-x64.zip" -CompressionLevel Optimal
           $hash = (Get-FileHash "dist/AutoElectiveOrb-windows-x64.zip" -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  AutoElectiveOrb-windows-x64.zip" | Set-Content "dist/AutoElectiveOrb-windows-x64.zip.sha256" -Encoding ascii

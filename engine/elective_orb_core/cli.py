@@ -16,7 +16,7 @@ from . import __date__, __version__
 def create_default_parser():
 
     parser = ArgumentParser(
-        description='PKU Auto-Elective Tool v%s (%s)' % (__version__, __date__),
+        description='AutoElective Orb local engine v%s (%s)' % (__version__, __date__),
     )
 
     ## custom input files
@@ -52,7 +52,7 @@ def setup_default_environ(options, environ):
 def create_default_threads():
 
     # import here to ensure the singleton `config` will be init later than parse_args()
-    from autoelective.loop import run_elective_loop, run_iaaa_loop
+    from elective_orb_core.loop import run_elective_loop, run_iaaa_loop
     workers = [
         ("IAAA", run_iaaa_loop),
         ("Elective", run_elective_loop),

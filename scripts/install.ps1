@@ -39,6 +39,7 @@ Write-Host "[2/4] Updating pip..."
 & $venvPython -m pip install --upgrade pip
 Write-Host "[3/4] Installing local OCR and parser dependencies..."
 & $venvPython -m pip install -r (Join-Path $projectRoot "requirements.txt")
+& $venvPython -m compileall -q (Join-Path $projectRoot "engine")
 Write-Host "[4/4] Building the Windows desktop application..."
 & (Join-Path $projectRoot "build.cmd")
 if ($LASTEXITCODE -ne 0) { throw "The desktop application build failed." }

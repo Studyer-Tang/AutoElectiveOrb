@@ -5,7 +5,7 @@
 
 import sys
 
-from autoelective.cli import run
+from elective_orb_core.cli import run
 
 if __name__ == '__main__':
     sys.exit(run())

@@ -17,6 +17,8 @@ namespace AutoElectiveOrb
         private readonly NotifyIcon tray;
         private readonly Icon appIcon;
         private readonly Timer animation;
+        private readonly Font orbFont;
+        private readonly StringFormat orbTextFormat;
         private bool allowExit;
         private bool moved;
         private Point mouseDown;
@@ -50,6 +52,8 @@ namespace AutoElectiveOrb
             Opacity = 0.97;
             appIcon = CreateAppIcon();
             Icon = appIcon;
+            orbFont = new Font("Microsoft YaHei UI", 17, FontStyle.Bold);
+            orbTextFormat = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
             ApplyCircle();
             Location = LoadLocation();
 
@@ -94,9 +98,8 @@ namespace AutoElectiveOrb
 
             backend.StateChanged += OnStateChanged;
             backend.Notification += OnNotification;
-            animation = new Timer { Interval = 90 };
+            animation = new Timer { Interval = 120 };
             animation.Tick += delegate { pulse = (pulse + 1) % 30; Invalidate(); };
-            animation.Start();
 
             MouseDown += OnMouseDown;
             MouseMove += OnMouseMove;
@@ -131,10 +134,7 @@ namespace AutoElectiveOrb
                 using (var progress = new Pen(Color.FromArgb(150 + pulse * 3, Color.White), 2.4f))
                     graphics.DrawArc(progress, 1, 1, 62, 62, pulse * 12, state == EngineState.Starting ? 90 : 210);
             }
-            using (var font = new Font("Microsoft YaHei UI", 17, FontStyle.Bold))
-            using (var brush = new SolidBrush(Color.White))
-            using (var format = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
-                graphics.DrawString("选", font, brush, new Rectangle(4, 1, 56, 52), format);
+            graphics.DrawString("选", orbFont, Brushes.White, new Rectangle(4, 1, 56, 52), orbTextFormat);
             var indicator = state == EngineState.Running ? Color.FromArgb(167, 243, 208) : state == EngineState.Failed ? Color.FromArgb(254, 205, 211) : Color.FromArgb(224, 231, 255);
             using (var glow = new SolidBrush(Color.FromArgb(70, indicator))) graphics.FillEllipse(glow, 25, 49, 14, 8);
             using (var dot = new SolidBrush(indicator)) graphics.FillEllipse(dot, 29, 51, 6, 6);
@@ -194,6 +194,9 @@ namespace AutoElectiveOrb
             if (IsDisposed) return;
             if (InvokeRequired) { BeginInvoke(new Action<EngineState>(OnStateChanged), state); return; }
             tray.Text = "本地选课助手 · " + StateText(state);
+            var shouldAnimate = state == EngineState.Starting || state == EngineState.Waiting || state == EngineState.Running;
+            if (shouldAnimate && !animation.Enabled) animation.Start();
+            else if (!shouldAnimate && animation.Enabled) animation.Stop();
             Invalidate();
         }
 
@@ -289,6 +292,8 @@ namespace AutoElectiveOrb
             SaveLocation();
             animation.Stop();
             animation.Dispose();
+            orbFont.Dispose();
+            orbTextFormat.Dispose();
             backend.Dispose();
             settingsForm.Dispose();
             tray.Visible = false;

@@ -107,6 +107,6 @@ build.cmd
 
 可在 Windows 中右键发布包内的 `AutoElectiveOrb.exe`，打开 **属性 → 数字签名** 查看发布者和时间戳；也可核对同一 Release 中的 `.sha256` 文件。已发布的 `v1.0.0` 是历史未签名版本，配置证书后应发布新的版本标签，不要覆盖旧文件。
 
-## 许可证与致谢
+## 许可证
 
-项目使用 [MIT License](LICENSE)。Python 选课引擎整理自 Rabbit 的 MIT 许可 PKUAutoElective 项目；第三方组件说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+项目由 Studyer-Tang 开发并使用 [MIT License](LICENSE)。运行时依赖及其许可证说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

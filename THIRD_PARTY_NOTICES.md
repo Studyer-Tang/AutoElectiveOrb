@@ -1,8 +1,6 @@
 # Third-party notices
 
-The Python elective engine is derived from the MIT-licensed PKUAutoElective project by Rabbit. Its original copyright notice is retained in [LICENSE](LICENSE).
-
-Runtime dependencies are installed from PyPI and retain their own licenses:
+Runtime dependencies are installed from PyPI and retain their respective licenses:
 
 - requests
 - lxml

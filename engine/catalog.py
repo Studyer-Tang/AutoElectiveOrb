@@ -75,15 +75,15 @@ def unique_courses(courses):
 
 
 def run(config_path):
-    from autoelective.environ import Environ
+    from elective_orb_core.environ import Environ
     Environ().config_ini = config_path
 
     # These imports intentionally happen after selecting the generated config.
-    from autoelective.config import AutoElectiveConfig
-    from autoelective.const import USER_AGENT_LIST
-    from autoelective.elective import ElectiveClient
-    from autoelective.iaaa import IAAAClient
-    from autoelective.parser import (
+    from elective_orb_core.config import AutoElectiveConfig
+    from elective_orb_core.const import USER_AGENT_LIST
+    from elective_orb_core.elective import ElectiveClient
+    from elective_orb_core.iaaa import IAAAClient
+    from elective_orb_core.parser import (
         get_courses,
         get_courses_with_detail,
         get_elected_courses_with_drop,
@@ -92,7 +92,7 @@ def run(config_path):
         get_tables,
         table_has_columns,
     )
-    from autoelective.exceptions import NotInOperationTimeError
+    from elective_orb_core.exceptions import NotInOperationTimeError
 
     config = AutoElectiveConfig()
     username = config.iaaa_id
