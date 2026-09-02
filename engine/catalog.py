@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import os
 import random
 import sys
 import time
 from urllib.parse import urlsplit
+
+
+ENGINE_DIR = os.path.dirname(os.path.abspath(__file__))
+if ENGINE_DIR not in sys.path:
+    sys.path.insert(0, ENGINE_DIR)
 
 
 CURRENT_STAGE = "初始化"

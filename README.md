@@ -12,6 +12,8 @@
 
 Release 便携包内含隔离的 Python 3.12 运行时和全部 Python 依赖，不需要安装 Python，也不需要管理员权限。第一次启动本地 OCR 时可能需要几秒钟加载模型。
 
+请解压完整 ZIP 后再运行，不能只复制 EXE；`engine/`、`runtime/` 和 `assets/` 必须与 EXE 保持在同一目录中。
+
 不要只从 GitHub 的 **Source code** 压缩包里双击 EXE；源代码包不包含便携运行时。如需从源代码运行，请使用下一节的一键安装。
 
 ## 从源代码安装
