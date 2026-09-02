@@ -14,6 +14,7 @@ runtime/
 
 # Build and release output
 AutoElectiveOrb.exe
+UninstallAutoElectiveOrb.exe
 dist/
 release/
 *.zip

@@ -30,16 +30,17 @@ jobs:
         shell: cmd
         run: build.cmd
 
-      - name: Require a signing certificate for tagged releases
+      - name: Report release signing status
         if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
         env:
           WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
           WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
         run: |
-          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_BASE64) -or
-              [string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_PASSWORD)) {
-            throw "Tagged releases must be code-signed. Configure WINDOWS_CERTIFICATE_BASE64 and WINDOWS_CERTIFICATE_PASSWORD in GitHub Actions secrets."
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_BASE64)) {
+            Write-Warning "This release will be published unsigned. Windows may show an unknown-publisher warning."
+          } else {
+            "A signing certificate is configured; both executables will be signed and verified."
           }
 
       - name: Import code-signing certificate
@@ -100,24 +101,26 @@ jobs:
             $timestampUrl = "http://timestamp.digicert.com"
           }
 
-          & $signTool sign /sha1 $env:SIGNING_CERT_THUMBPRINT /fd SHA256 /tr $timestampUrl /td SHA256 AutoElectiveOrb.exe
-          if ($LASTEXITCODE -ne 0) { throw "signtool sign failed with exit code $LASTEXITCODE." }
+          foreach ($executable in @("AutoElectiveOrb.exe", "UninstallAutoElectiveOrb.exe")) {
+            & $signTool sign /sha1 $env:SIGNING_CERT_THUMBPRINT /fd SHA256 /tr $timestampUrl /td SHA256 $executable
+            if ($LASTEXITCODE -ne 0) { throw "signtool sign failed for $executable with exit code $LASTEXITCODE." }
 
-          & $signTool verify /pa /all /v AutoElectiveOrb.exe
-          if ($LASTEXITCODE -ne 0) { throw "signtool verify failed with exit code $LASTEXITCODE." }
+            & $signTool verify /pa /all /v $executable
+            if ($LASTEXITCODE -ne 0) { throw "signtool verify failed for $executable with exit code $LASTEXITCODE." }
 
-          $signature = Get-AuthenticodeSignature AutoElectiveOrb.exe
-          if ($signature.Status -ne "Valid") {
-            throw "Authenticode verification returned status: $($signature.Status)."
+            $signature = Get-AuthenticodeSignature $executable
+            if ($signature.Status -ne "Valid") {
+              throw "Authenticode verification failed for $executable with status: $($signature.Status)."
+            }
+            "Signed $executable by: $($signature.SignerCertificate.Subject)"
           }
-          "Signed by: $($signature.SignerCertificate.Subject)"
 
       - name: Assemble portable runtime
         shell: pwsh
         run: |
           $package = "dist/AutoElectiveOrb"
           New-Item -ItemType Directory -Force "$package/runtime/Lib/site-packages" | Out-Null
-          Copy-Item AutoElectiveOrb.exe,README.md,LICENSE,THIRD_PARTY_NOTICES.md,run.cmd -Destination $package
+          Copy-Item AutoElectiveOrb.exe,UninstallAutoElectiveOrb.exe,README.md,LICENSE,THIRD_PARTY_NOTICES.md,run.cmd -Destination $package
           Copy-Item engine -Destination $package -Recurse
           Copy-Item assets -Destination $package -Recurse
           Invoke-WebRequest "https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip" -OutFile "python-embed.zip"
@@ -127,6 +130,9 @@ jobs:
           & "$package/runtime/python.exe" -m compileall -q "$package/engine"
           & "$package/runtime/python.exe" -c "import elective_orb_core; print('Portable engine import OK')"
           if ($LASTEXITCODE -ne 0) { throw "The portable runtime cannot import the bundled engine." }
+          if ([string]::IsNullOrWhiteSpace($env:SIGNING_CERT_THUMBPRINT)) {
+            "This build is not Authenticode-signed. Windows may display an unknown-publisher warning." | Set-Content "$package/UNSIGNED_BUILD.txt" -Encoding utf8
+          }
           Compress-Archive "$package/*" "dist/AutoElectiveOrb-windows-x64.zip" -CompressionLevel Optimal
           $hash = (Get-FileHash "dist/AutoElectiveOrb-windows-x64.zip" -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  AutoElectiveOrb-windows-x64.zip" | Set-Content "dist/AutoElectiveOrb-windows-x64.zip.sha256" -Encoding ascii

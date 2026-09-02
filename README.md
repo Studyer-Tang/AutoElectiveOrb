@@ -14,6 +14,8 @@ Release 便携包内含隔离的 Python 3.12 运行时和全部 Python 依赖，
 
 请解压完整 ZIP 后再运行，不能只复制 EXE；`engine/`、`runtime/` 和 `assets/` 必须与 EXE 保持在同一目录中。
 
+卸载时双击 `UninstallAutoElectiveOrb.exe`。它可以关闭悬浮球、移除开机启动，并由用户选择是否删除保存的统一认证凭据、本地设置、日志、换课历史及便携程序文件。为避免容易触发安全软件的自删除行为，卸载器自身会保留，关闭后直接删除剩余文件夹即可。
+
 不要只从 GitHub 的 **Source code** 压缩包里双击 EXE；源代码包不包含便携运行时。如需从源代码运行，请使用下一节的一键安装。
 
 ## 从源代码安装
@@ -94,7 +96,7 @@ build.cmd
 
 ## 发布
 
-推送 `v*` 标签（例如 `v1.0.1`）会运行测试、编译程序、对 EXE 进行 Authenticode 签名和校验、加入官方 CPython 3.12 embeddable runtime，并发布 ZIP 与 SHA-256 校验文件。为防止误发，正式标签在没有签名证书时会直接停止；Actions 页面手动运行仍可生成未签名的测试构建。
+推送 `v*` 标签（例如 `v1.0.1`）会运行测试、编译主程序和卸载器、加入官方 CPython 3.12 embeddable runtime，并发布 ZIP 与 SHA-256 校验文件。配置证书时会对两个 EXE 进行 Authenticode 签名和校验；没有证书时仍允许发布，但包内会包含 `UNSIGNED_BUILD.txt`，Windows 可能显示未知发布者警告。
 
 ### 配置 Windows 代码签名
 

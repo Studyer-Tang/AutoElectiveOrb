@@ -16,4 +16,4 @@ Please open a GitHub security advisory instead of publishing credentials or an e
 
 # Release signing
 
-Official tagged releases are required to carry a valid Windows Authenticode signature. Signing keys and certificate passwords must be stored only as encrypted GitHub Actions secrets or in a hardware/cloud signing service; they must never be committed to this repository. Each release also includes a SHA-256 checksum file.
+Tagged releases support Windows Authenticode signing when a trusted certificate is configured. Unsigned releases are explicitly marked inside the package and may trigger an unknown-publisher warning. Signing keys and certificate passwords must be stored only as encrypted GitHub Actions secrets or in a hardware/cloud signing service; they must never be committed to this repository. Each release also includes a SHA-256 checksum file.
