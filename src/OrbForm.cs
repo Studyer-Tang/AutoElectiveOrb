@@ -15,10 +15,9 @@ namespace AutoElectiveOrb
         private readonly BackendProcess backend;
         private readonly SettingsForm settingsForm;
         private readonly NotifyIcon tray;
+        private readonly Image orbArtwork;
         private readonly Icon appIcon;
         private readonly Timer animation;
-        private readonly Font orbFont;
-        private readonly StringFormat orbTextFormat;
         private bool allowExit;
         private bool moved;
         private Point mouseDown;
@@ -50,10 +49,9 @@ namespace AutoElectiveOrb
             StartPosition = FormStartPosition.Manual;
             DoubleBuffered = true;
             Opacity = 0.97;
-            appIcon = CreateAppIcon();
+            orbArtwork = LoadOrbArtwork();
+            appIcon = CreateAppIcon(orbArtwork);
             Icon = appIcon;
-            orbFont = new Font("Microsoft YaHei UI", 17, FontStyle.Bold);
-            orbTextFormat = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
             ApplyCircle();
             Location = LoadLocation();
 
@@ -120,24 +118,24 @@ namespace AutoElectiveOrb
             base.OnPaint(args);
             var graphics = args.Graphics;
             graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            var outer = new Rectangle(4, 4, 56, 56);
+            graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
             var state = backend.State;
-            var first = state == EngineState.Running ? Color.FromArgb(5, 150, 105) : state == EngineState.Waiting ? Color.FromArgb(124, 58, 237) : state == EngineState.Failed ? Color.FromArgb(225, 29, 72) : Theme.Blue;
-            var second = state == EngineState.Running ? Color.FromArgb(13, 148, 136) : state == EngineState.Waiting ? Color.FromArgb(79, 70, 229) : state == EngineState.Failed ? Color.FromArgb(249, 115, 22) : Color.FromArgb(14, 165, 233);
-            using (var shadow = new SolidBrush(Color.FromArgb(72, 0, 0, 0))) graphics.FillEllipse(shadow, 5, 7, 54, 54);
-            using (var fill = new LinearGradientBrush(outer, first, second, 45f)) graphics.FillEllipse(fill, outer);
-            using (var shine = new LinearGradientBrush(new Rectangle(10, 7, 44, 22), Color.FromArgb(95, Color.White), Color.FromArgb(0, Color.White), 90f))
-                graphics.FillEllipse(shine, 10, 7, 44, 22);
-            using (var border = new Pen(Color.FromArgb(105, Color.White), 1.2f)) graphics.DrawEllipse(border, outer);
+            graphics.DrawImage(orbArtwork, new Rectangle(2, 2, 60, 60));
+
+            var accent = state == EngineState.Running ? Color.FromArgb(110, 244, 204)
+                : state == EngineState.Waiting || state == EngineState.Starting ? Color.FromArgb(196, 181, 253)
+                : state == EngineState.Failed ? Color.FromArgb(251, 113, 133)
+                : Color.FromArgb(218, 227, 255);
+            using (var border = new Pen(Color.FromArgb(state == EngineState.Idle ? 100 : 205, accent), state == EngineState.Idle ? 1.1f : 1.8f))
+                graphics.DrawEllipse(border, 2.5f, 2.5f, 58, 58);
             if (state == EngineState.Starting || state == EngineState.Waiting || state == EngineState.Running)
             {
-                using (var progress = new Pen(Color.FromArgb(150 + pulse * 3, Color.White), 2.4f))
-                    graphics.DrawArc(progress, 1, 1, 62, 62, pulse * 12, state == EngineState.Starting ? 90 : 210);
+                using (var progress = new Pen(Color.FromArgb(145 + pulse * 3, Color.White), 2.2f))
+                    graphics.DrawArc(progress, 1.5f, 1.5f, 60.5f, 60.5f, pulse * 12, state == EngineState.Starting ? 82 : 188);
             }
-            graphics.DrawString("选", orbFont, Brushes.White, new Rectangle(4, 1, 56, 52), orbTextFormat);
-            var indicator = state == EngineState.Running ? Color.FromArgb(167, 243, 208) : state == EngineState.Failed ? Color.FromArgb(254, 205, 211) : Color.FromArgb(224, 231, 255);
-            using (var glow = new SolidBrush(Color.FromArgb(70, indicator))) graphics.FillEllipse(glow, 25, 49, 14, 8);
-            using (var dot = new SolidBrush(indicator)) graphics.FillEllipse(dot, 29, 51, 6, 6);
+            using (var badge = new SolidBrush(Color.FromArgb(220, 8, 15, 30))) graphics.FillEllipse(badge, 43, 43, 16, 16);
+            using (var dot = new SolidBrush(accent)) graphics.FillEllipse(dot, 47, 47, 8, 8);
         }
 
         protected override void WndProc(ref Message message)
@@ -292,27 +290,47 @@ namespace AutoElectiveOrb
             SaveLocation();
             animation.Stop();
             animation.Dispose();
-            orbFont.Dispose();
-            orbTextFormat.Dispose();
             backend.Dispose();
             settingsForm.Dispose();
             tray.Visible = false;
             tray.Dispose();
             appIcon.Dispose();
+            orbArtwork.Dispose();
         }
 
-        private static Icon CreateAppIcon()
+        private static Image LoadOrbArtwork()
+        {
+            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "assets", "floating-orb.png");
+            try
+            {
+                using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+                using (var source = Image.FromStream(stream))
+                    return new Bitmap(source);
+            }
+            catch
+            {
+                var fallback = new Bitmap(128, 128);
+                using (var graphics = Graphics.FromImage(fallback))
+                {
+                    graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                    using (var fill = new LinearGradientBrush(new Rectangle(6, 6, 116, 116), Theme.Blue, Theme.Cyan, 45f))
+                        graphics.FillEllipse(fill, 6, 6, 116, 116);
+                    using (var check = new Pen(Color.White, 13f) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round })
+                        graphics.DrawLines(check, new[] { new Point(32, 65), new Point(55, 87), new Point(96, 42) });
+                }
+                return fallback;
+            }
+        }
+
+        private static Icon CreateAppIcon(Image artwork)
         {
             using (var bitmap = new Bitmap(32, 32))
             using (var graphics = Graphics.FromImage(bitmap))
             {
                 graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                using (var fill = new LinearGradientBrush(new Rectangle(2, 2, 28, 28), Theme.Blue, Color.FromArgb(14, 165, 233), 45f))
-                    graphics.FillEllipse(fill, 2, 2, 28, 28);
-                using (var border = new Pen(Color.FromArgb(185, Color.White), 1.2f))
-                    graphics.DrawEllipse(border, 2.5f, 2.5f, 27, 27);
-                using (var check = new Pen(Color.White, 3.2f) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round })
-                    graphics.DrawLines(check, new[] { new Point(8, 16), new Point(14, 22), new Point(25, 10) });
+                graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                graphics.DrawImage(artwork, new Rectangle(0, 0, 32, 32));
                 var handle = bitmap.GetHicon();
                 try { return (Icon)Icon.FromHandle(handle).Clone(); }
                 finally { DestroyIcon(handle); }

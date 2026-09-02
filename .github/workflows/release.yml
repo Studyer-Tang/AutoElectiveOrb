@@ -119,6 +119,7 @@ jobs:
           New-Item -ItemType Directory -Force "$package/runtime/Lib/site-packages" | Out-Null
           Copy-Item AutoElectiveOrb.exe,README.md,LICENSE,THIRD_PARTY_NOTICES.md,run.cmd -Destination $package
           Copy-Item engine -Destination $package -Recurse
+          Copy-Item assets -Destination $package -Recurse
           Invoke-WebRequest "https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip" -OutFile "python-embed.zip"
           Expand-Archive "python-embed.zip" -DestinationPath "$package/runtime"
           @("python312.zip", ".", "Lib/site-packages", "import site") | Set-Content "$package/runtime/python312._pth" -Encoding ascii

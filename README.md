@@ -83,6 +83,7 @@ build.cmd
 主要目录：
 
 - `src/`：WinForms 桌面界面和 Windows 凭据管理器封装
+- `assets/`：悬浮球与托盘共用的界面图形资源
 - `engine/`：登录、解析、监控、本地 OCR 与换课状态机
 - `tests/`：完全离线的页面解析和换课日志测试
 - `.github/workflows/release.yml`：构建自带运行时的 Windows 便携包
