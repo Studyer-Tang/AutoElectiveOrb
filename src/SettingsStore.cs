@@ -73,7 +73,7 @@ namespace AutoElectiveOrb
             builder.AppendLine("[safety]");
             var hasSwap = settings.Courses.Exists(course => course.IsSwap);
             builder.AppendLine("enable_unsafe_auto_swap = " + (hasSwap ? "true" : "false"));
-            var swapGroups = new Dictionary<string, List<int>>(StringComparer.Ordinal);
+            var choiceGroups = new Dictionary<string, List<int>>(StringComparer.Ordinal);
             for (var index = 0; index < settings.Courses.Count; index++)
             {
                 var course = settings.Courses[index];
@@ -83,18 +83,21 @@ namespace AutoElectiveOrb
                 builder.AppendLine("name = " + Ini(course.Name));
                 builder.AppendLine("class = " + course.ClassNo);
                 builder.AppendLine("school = " + Ini(course.School));
+                if (!string.IsNullOrWhiteSpace(course.SwapGroup))
+                {
+                    List<int> members;
+                    if (!choiceGroups.TryGetValue(course.SwapGroup, out members))
+                    {
+                        members = new List<int>();
+                        choiceGroups[course.SwapGroup] = members;
+                    }
+                    members.Add(id);
+                }
                 if (course.IsSwap)
                 {
                     builder.AppendLine("drop_name = " + Ini(course.DropName));
                     builder.AppendLine("drop_class = " + course.DropClassNo);
                     builder.AppendLine("drop_school = " + Ini(course.DropSchool));
-                    List<int> members;
-                    if (!swapGroups.TryGetValue(course.SwapGroup ?? string.Empty, out members))
-                    {
-                        members = new List<int>();
-                        swapGroups[course.SwapGroup ?? string.Empty] = members;
-                    }
-                    members.Add(id);
                 }
                 if (course.Threshold > 0)
                 {
@@ -105,12 +108,12 @@ namespace AutoElectiveOrb
                 }
             }
             var groupNumber = 0;
-            foreach (var group in swapGroups.Values)
+            foreach (var group in choiceGroups.Values)
             {
                 if (group.Count < 2) continue;
                 groupNumber++;
                 builder.AppendLine();
-                builder.AppendLine("[mutex:auto_swap_" + groupNumber + "]");
+                builder.AppendLine("[mutex:choice_group_" + groupNumber + "]");
                 builder.AppendLine("courses = " + string.Join(",", group));
             }
             File.WriteAllText(path, builder.ToString(), new UTF8Encoding(false));

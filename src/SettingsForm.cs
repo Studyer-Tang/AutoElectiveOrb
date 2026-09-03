@@ -137,9 +137,18 @@ namespace AutoElectiveOrb
             courseCard.Controls.Add(smartSwap);
             var deleteCourse = Theme.Button("删除选中", false);
             deleteCourse.SetBounds(520, 180, 122, 28);
-            deleteCourse.Click += delegate { foreach (DataGridViewRow row in courses.SelectedRows) if (!row.IsNewRow) courses.Rows.Remove(row); };
+            deleteCourse.Click += delegate
+            {
+                foreach (DataGridViewRow row in courses.SelectedRows) if (!row.IsNewRow) courses.Rows.Remove(row);
+                NormalizeSameNameCandidateGroups();
+            };
             courseCard.Controls.Add(deleteCourse);
-            var courseHint = new Label { Text = "阈值填 0 表示一有余量就尝试补选；可直接在最后一行继续添加课程。", ForeColor = Theme.Secondary, AutoSize = true };
+            var courseHint = new Label
+            {
+                Text = "同名分课按优先级 1 → 2 → 3 依次尝试；成功一门后，同组其他分课自动停止。",
+                ForeColor = Theme.Cyan,
+                Size = new Size(325, 40)
+            };
             courseHint.Location = new Point(14, 164);
             courseCard.Controls.Add(courseHint);
 
@@ -214,6 +223,7 @@ namespace AutoElectiveOrb
             var id = studentId.Text.Trim();
             var currentSettings = store.Load();
             if (!Regex.IsMatch(id, "^[A-Za-z0-9_-]{1,64}$")) throw new InvalidOperationException("学号只能包含字母、数字、下划线和连字符。");
+            NormalizeSameNameCandidateGroups();
             var settings = new AppSettings
             {
                 StudentId = id,
@@ -323,7 +333,39 @@ namespace AutoElectiveOrb
                         && Cell(row, 2) == rule.School);
                     if (!duplicate) AddCourseRow(rule);
                 }
+                NormalizeSameNameCandidateGroups();
             }
+        }
+
+        private void NormalizeSameNameCandidateGroups()
+        {
+            var normalRows = courses.Rows.Cast<DataGridViewRow>()
+                .Where(row => !row.IsNewRow && Cell(row, 7).Length == 0 && Cell(row, 0).Length > 0)
+                .ToList();
+            foreach (var group in normalRows.GroupBy(row => Cell(row, 0), StringComparer.OrdinalIgnoreCase))
+            {
+                if (group.Count() == 1)
+                {
+                    var row = group.First();
+                    row.Cells[6].Value = string.Empty;
+                    row.Cells[5].Value = "普通";
+                    continue;
+                }
+                var groupId = group.Select(row => Cell(row, 6)).FirstOrDefault(value => value.Length > 0) ?? Guid.NewGuid().ToString("N");
+                var ordered = group.OrderBy(row => ParsedPriority(row)).ThenBy(row => Cell(row, 1)).ToList();
+                for (var index = 0; index < ordered.Count; index++)
+                {
+                    ordered[index].Cells[4].Value = index + 1;
+                    ordered[index].Cells[6].Value = groupId;
+                    ordered[index].Cells[5].Value = "同名候选组";
+                }
+            }
+        }
+
+        private static int ParsedPriority(DataGridViewRow row)
+        {
+            int value;
+            return int.TryParse(Cell(row, 4), out value) && value > 0 ? value : int.MaxValue;
         }
 
         private void AddCourseRow(CourseSetting course)
@@ -334,7 +376,7 @@ namespace AutoElectiveOrb
                 course.School,
                 course.Threshold,
                 course.Priority > 0 ? course.Priority : 100,
-                course.IsSwap ? "换：" + course.DropName : "普通",
+                course.IsSwap ? "换：" + course.DropName : string.IsNullOrWhiteSpace(course.SwapGroup) ? "普通" : "同名候选组",
                 course.SwapGroup,
                 course.DropName,
                 course.DropClassNo > 0 ? course.DropClassNo.ToString() : string.Empty,

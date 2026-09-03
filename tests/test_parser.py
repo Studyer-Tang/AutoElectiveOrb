@@ -13,9 +13,23 @@ from elective_orb_core.parser import (  # noqa: E402
     get_tables,
 )
 from elective_orb_core.parser import get_tree  # noqa: E402
+from elective_orb_core.course import Course  # noqa: E402
+from catalog import merge_courses  # noqa: E402
 
 
 class ParserTests(unittest.TestCase):
+    def test_plan_merge_keeps_all_courses_and_prefers_detailed_row(self):
+        basic = Course("算法设计", 1, "信息科学技术学院", teacher="")
+        other = Course("操作系统", 2, "信息科学技术学院", teacher="李老师")
+        detailed = Course("算法设计", 1, "信息科学技术学院", status=(100, 96), href="/supplement/electSupplement.do?id=1", teacher="张老师")
+
+        merged = merge_courses([basic, other], [detailed])
+
+        self.assertEqual(len(merged), 2)
+        self.assertEqual(merged[0].teacher, "张老师")
+        self.assertEqual(merged[0].remaining_quota, 4)
+        self.assertEqual(merged[1], other)
+
     def test_early_course_table_without_action_or_quota(self):
         tree = get_tree("""
         <html><body><table><tr><td>

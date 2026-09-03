@@ -80,6 +80,25 @@ def unique_courses(courses):
     return result
 
 
+def merge_courses(*groups):
+    """Merge course sources while preferring rows with quota/link/teacher detail."""
+    merged = {}
+    order = []
+    for courses in groups:
+        for course in courses:
+            key = course_key(course)
+            if key not in merged:
+                merged[key] = course
+                order.append(key)
+                continue
+            current = merged[key]
+            current_score = int(current.status is not None) * 2 + int(bool(current.href)) * 2 + int(bool(current.teacher))
+            candidate_score = int(course.status is not None) * 2 + int(bool(course.href)) * 2 + int(bool(course.teacher))
+            if candidate_score > current_score:
+                merged[key] = course
+    return [merged[key] for key in order]
+
+
 def run(config_path):
     from elective_orb_core.environ import Environ
     Environ().config_ini = config_path
@@ -129,6 +148,15 @@ def run(config_path):
     def scan_supplement():
         elected_courses = []
         planned_courses = []
+
+        # The plan page is the authoritative user-specific list and can contain
+        # courses that are not visible on the current supplement page yet.
+        stage("读取选课计划全部课程")
+        try:
+            planned_courses.extend(parse_basic_response(elective.get_PlanController()))
+        except NotInOperationTimeError:
+            pass
+
         seen_pages = set()
         for page in range(1, 101):
             stage("读取补退选课程第 %s 页" % page)
@@ -150,7 +178,7 @@ def run(config_path):
             if len(page_plans) < 20:
                 break
             time.sleep(0.5)
-        return unique_courses(elected_courses), unique_courses(planned_courses)
+        return unique_courses(elected_courses), merge_courses(planned_courses)
 
     def parse_basic_response(response):
         courses = []
