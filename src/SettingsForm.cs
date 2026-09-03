@@ -48,6 +48,10 @@ namespace AutoElectiveOrb
             status = new Label { Text = "● 已停止", ForeColor = Theme.Secondary, TextAlign = ContentAlignment.MiddleRight };
             status.SetBounds(470, 22, 200, 28);
             Controls.Add(status);
+            var update = Theme.Button("检查更新", false);
+            update.SetBounds(432, 52, 106, 28);
+            update.Click += delegate { UpdateLauncher.Start(this); };
+            Controls.Add(update);
             var help = Theme.Button("?  功能与用法", false);
             help.SetBounds(548, 52, 122, 28);
             help.Click += delegate { using (var window = new HelpForm()) window.ShowDialog(this); };

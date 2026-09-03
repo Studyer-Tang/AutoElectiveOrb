@@ -17,3 +17,7 @@ Please open a GitHub security advisory instead of publishing credentials or an e
 # Release signing
 
 Tagged releases support Windows Authenticode signing when a trusted certificate is configured. Unsigned releases are explicitly marked inside the package and may trigger an unknown-publisher warning. Signing keys and certificate passwords must be stored only as encrypted GitHub Actions secrets or in a hardware/cloud signing service; they must never be committed to this repository. Each release also includes a SHA-256 checksum file.
+
+# Automatic updates
+
+The updater downloads only the latest GitHub Release package and its published SHA-256 file. It rejects mismatched checksums and unsafe ZIP paths, updates only a fixed allowlist of application files, and restores its backup if installation fails. User data under `%LOCALAPPDATA%\AutoElectiveOrb` is outside the update target.
