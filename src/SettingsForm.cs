@@ -113,6 +113,8 @@ namespace AutoElectiveOrb
                 EnableHeadersVisualStyles = false,
                 RowHeadersVisible = false,
                 AllowUserToResizeRows = false,
+                MultiSelect = true,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
             };
             courses.Columns.Add("CourseName", "课程名");
@@ -139,12 +141,15 @@ namespace AutoElectiveOrb
             smartSwap.SetBounds(350, 180, 160, 28);
             smartSwap.Click += delegate { OpenCoursePicker(); };
             courseCard.Controls.Add(smartSwap);
-            var deleteCourse = Theme.Button("删除选中", false);
+            var deleteCourse = Theme.Button("删除所选行", false);
             deleteCourse.SetBounds(520, 180, 122, 28);
-            deleteCourse.Click += delegate
+            deleteCourse.Click += delegate { DeleteSelectedCourses(); };
+            courses.KeyDown += delegate(object sender, KeyEventArgs args)
             {
-                foreach (DataGridViewRow row in courses.SelectedRows) if (!row.IsNewRow) courses.Rows.Remove(row);
-                NormalizeSameNameCandidateGroups();
+                if (args.KeyCode != Keys.Delete || courses.IsCurrentCellInEditMode) return;
+                DeleteSelectedCourses();
+                args.Handled = true;
+                args.SuppressKeyPress = true;
             };
             courseCard.Controls.Add(deleteCourse);
             var courseHint = new Label
@@ -220,6 +225,18 @@ namespace AutoElectiveOrb
             {
                 MessageBox.Show(this, error.Message, "无法开始监控", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
+        }
+
+        private void DeleteSelectedCourses()
+        {
+            var selected = courses.SelectedRows.Cast<DataGridViewRow>()
+                .Where(row => !row.IsNewRow)
+                .OrderByDescending(row => row.Index)
+                .ToList();
+            if (selected.Count == 0 && courses.CurrentRow != null && !courses.CurrentRow.IsNewRow)
+                selected.Add(courses.CurrentRow);
+            foreach (var row in selected) courses.Rows.Remove(row);
+            NormalizeSameNameCandidateGroups();
         }
 
         private AppSettings SaveFromUi(bool saveCredential)
