@@ -114,7 +114,7 @@ namespace AutoElectiveOrb
                 RowHeadersVisible = false,
                 AllowUserToResizeRows = false,
                 MultiSelect = true,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                SelectionMode = DataGridViewSelectionMode.CellSelect,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
             };
             courses.Columns.Add("CourseName", "课程名");
@@ -229,8 +229,10 @@ namespace AutoElectiveOrb
 
         private void DeleteSelectedCourses()
         {
-            var selected = courses.SelectedRows.Cast<DataGridViewRow>()
+            var selected = courses.SelectedCells.Cast<DataGridViewCell>()
+                .Select(cell => cell.OwningRow)
                 .Where(row => !row.IsNewRow)
+                .Distinct()
                 .OrderByDescending(row => row.Index)
                 .ToList();
             if (selected.Count == 0 && courses.CurrentRow != null && !courses.CurrentRow.IsNewRow)
