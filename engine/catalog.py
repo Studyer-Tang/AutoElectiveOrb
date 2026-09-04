@@ -25,6 +25,8 @@ def friendly_error(error):
     message = str(error).replace("\r", " ").replace("\n", " ")
     response = getattr(error, "response", None)
     known = {
+        "ProxyError": "检测到本机代理不可用。学校认证请求已设置为直连，请更新程序后重试。",
+        "ConnectionError": "无法连接学校服务器，请检查校园网、网络连接或稍后重试。",
         "NotInOperationTimeError": "当前学校阶段入口尚未开放，补退选与早期选课页面均不可读取。",
         "NotAgreedToSelectionAgreement": "尚未同意本学期选课协议。请先在浏览器进入选课系统并同意协议，然后重新读取。",
         "SessionExpiredError": "选课系统会话在读取前失效，请关闭其他选课页面后重新读取。",

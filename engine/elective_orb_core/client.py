@@ -18,6 +18,10 @@ class BaseClient(object):
             raise NotImplementedError
         self._timeout = kwargs.get("timeout", self.__class__.default_client_timeout)
         self._session = Session()
+        # School authentication and course-selection traffic must go directly
+        # to PKU. Stale HTTP(S)_PROXY values (commonly 127.0.0.1:7890) should
+        # never make login depend on whether a local proxy app is running.
+        self._session.trust_env = False
         self._session.headers.update(self.__class__.default_headers)
 
     @property
