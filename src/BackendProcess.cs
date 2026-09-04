@@ -99,9 +99,10 @@ namespace AutoElectiveOrb
         private void OnLine(string line, bool error)
         {
             var cleaned = line.TrimEnd();
+            var lineIsError = IsErrorLine(cleaned, error);
             lock (gate)
             {
-                recentLines.Enqueue((error ? "[错误] " : string.Empty) + cleaned);
+                recentLines.Enqueue((lineIsError ? "[错误] " : string.Empty) + cleaned);
                 while (recentLines.Count > 400) recentLines.Dequeue();
             }
             if (cleaned.IndexOf("LOCAL_OCR_READY", StringComparison.OrdinalIgnoreCase) >= 0)
@@ -132,7 +133,16 @@ namespace AutoElectiveOrb
             else if (cleaned.IndexOf("worker failed", StringComparison.OrdinalIgnoreCase) >= 0)
                 RaiseNotification("选课任务异常", cleaned);
             var handler = LineReceived;
-            if (handler != null) handler((error ? "[错误] " : string.Empty) + Friendly(cleaned));
+            if (handler != null) handler((lineIsError ? "[错误] " : string.Empty) + Friendly(cleaned));
+        }
+
+        private static bool IsErrorLine(string line, bool fromStandardError)
+        {
+            if (line.IndexOf("worker failed", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            if (!fromStandardError || string.IsNullOrWhiteSpace(line)) return false;
+            return !(line.StartsWith("[INFO]", StringComparison.OrdinalIgnoreCase)
+                || line.StartsWith("[DEBUG]", StringComparison.OrdinalIgnoreCase)
+                || line.StartsWith("[WARNING]", StringComparison.OrdinalIgnoreCase));
         }
 
         private void OnExited(object sender, EventArgs args)

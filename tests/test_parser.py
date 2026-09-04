@@ -60,6 +60,17 @@ class ParserTests(unittest.TestCase):
         self.assertEqual("/elect", course.href)
         self.assertEqual("张老师", course.teacher)
 
+    def test_supplement_table_reads_quota_with_waitlist_column(self):
+        tree = get_tree("""
+        <table class="datagrid">
+          <tr class="datagrid-header"><th>课程名</th><th>班号</th><th>开课单位</th><th>限数/已选/候补</th><th>补选</th></tr>
+          <tr class="datagrid-even"><td>中国通史</td><td>1</td><td>历史学系</td><td>120 / 119 / 8</td><td><a href="/elect">补选</a></td></tr>
+        </table>
+        """)
+        course = get_courses_with_detail(get_tables(tree)[0])[0]
+        self.assertEqual((120, 119), course.status)
+        self.assertEqual(1, course.remaining_quota)
+
     def test_single_results_table_is_enough(self):
         tree = get_tree("""
         <table class="datagrid">

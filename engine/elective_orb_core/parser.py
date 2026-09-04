@@ -183,7 +183,10 @@ def get_courses_with_detail(table, require_action=True):
     header = get_table_header(table)
     trs = get_table_trs(table)
     base_ixs = _column_indexes(header, ["课程名","班号","开课单位"])
-    quota_ix = header.index("限数/已选") if "限数/已选" in header else None
+    # The school has used both "限数/已选" and "限数/已选/候补".
+    # Match the meaning instead of coupling the parser to one exact caption.
+    quota_ix = next((index for index, name in enumerate(header)
+                     if "限数" in name and "已选" in name), None)
     teacher_ix = header.index("教师") if "教师" in header else None
     action_ix = next((header.index(name) for name in ("补选", "预选") if name in header), None)
     if require_action and action_ix is None:

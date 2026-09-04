@@ -205,7 +205,7 @@ def _attempt_swap_rollback(elective, drop_course, transaction_id=None, target_co
                 append_swap_event(transaction_id, "rollback_not_needed", drop_course, target_course)
             return True
         original = next((course for course in plans if course == drop_course), None)
-        if original is None or not original.is_available():
+        if original is None or original.status is None or not original.is_available():
             cout.critical("Rollback unavailable: original course is not electable or has no quota")
             if transaction_id:
                 append_swap_event(transaction_id, "rollback_failed", drop_course, target_course, "原课程不可选或无余量")
@@ -656,6 +656,9 @@ def run_elective_loop():
                     for c0 in plans: # c0 has detail
                         if c0 == c:
                             found = True
+                            if c0.status is None:
+                                cout.warning("Quota is unavailable for %s; skip this cycle safely" % c0)
+                                break
                             if c0.is_available():
                                 delay = delays[ix]
                                 if delay != NO_DELAY and c0.remaining_quota > delay:
@@ -727,7 +730,8 @@ def run_elective_loop():
                         if swap_drop_course in verified_elected:
                             raise OperationFailedError(msg="Swap drop was not confirmed")
                         refreshed_target = next((item for item in refreshed_plans if item == course), None)
-                        if refreshed_target is None or not refreshed_target.is_available():
+                        if (refreshed_target is None or refreshed_target.status is None
+                                or not refreshed_target.is_available()):
                             cout.warning("Target quota disappeared immediately after drop")
                             _attempt_swap_rollback(elective, swap_drop_course, swap_transaction, course)
                             _ignore_course(course, "Swap aborted; target quota disappeared")
@@ -809,7 +813,7 @@ def run_elective_loop():
                 except QuotaLimitedError as e:
                     ferr.error(e)
                     # 选课网可能会发回异常数据，本身名额 180/180 的课会发 180/0，这个时候选课会得到这个错误
-                    if course.used_quota == 0:
+                    if course.status is not None and course.used_quota == 0:
                         cout.warning("Abnormal status of %s, a bug of 'elective.pku.edu.cn' found" % course)
                     else:
                         ferr.critical("Unexcepted behaviour") # 没有理由运行到这里
