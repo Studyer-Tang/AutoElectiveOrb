@@ -48,6 +48,10 @@ namespace AutoElectiveOrb
             status = new Label { Text = "● 已停止", ForeColor = Theme.Secondary, TextAlign = ContentAlignment.MiddleRight };
             status.SetBounds(470, 22, 200, 28);
             Controls.Add(status);
+            var lottery = Theme.Button("抽签结果", false);
+            lottery.SetBounds(316, 52, 106, 28);
+            lottery.Click += delegate { ShowLotteryResults(); };
+            Controls.Add(lottery);
             var update = Theme.Button("检查更新", false);
             update.SetBounds(432, 52, 106, 28);
             update.Click += delegate { UpdateLauncher.Start(this); };
@@ -225,6 +229,38 @@ namespace AutoElectiveOrb
             {
                 MessageBox.Show(this, error.Message, "无法开始监控", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
+        }
+
+        public void ShowLotteryResults()
+        {
+            if (backend.IsRunning)
+            {
+                MessageBox.Show(this, "为避免选课系统判定会话冲突，请先停止当前监控。", "正在监控", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            var id = studentId.Text.Trim();
+            if (!Regex.IsMatch(id, "^[A-Za-z0-9_-]{1,64}$"))
+            {
+                MessageBox.Show(this, "请先填写正确的学号。", "无法读取抽签结果", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            var secret = password.TextLength > 0 ? password.Text : CredentialStore.Read(id);
+            if (string.IsNullOrEmpty(secret))
+            {
+                MessageBox.Show(this, "请先填写统一认证密码。密码无需发送给任何人。", "无法读取抽签结果", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            var current = store.Load();
+            var snapshot = new AppSettings
+            {
+                StudentId = id,
+                DualDegree = dualDegree.Checked,
+                Identity = dualDegree.Checked && identity.SelectedIndex == 1 ? "bfx" : "bzx",
+                RefreshInterval = (double)interval.Value,
+                OrbX = current.OrbX,
+                OrbY = current.OrbY
+            };
+            using (var window = new LotteryResultsForm(snapshot, secret, store)) window.ShowDialog(this);
         }
 
         private void DeleteSelectedCourses()

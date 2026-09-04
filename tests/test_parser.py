@@ -1,6 +1,7 @@
 import os
 import sys
 import unittest
+from types import SimpleNamespace
 
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -14,7 +15,7 @@ from elective_orb_core.parser import (  # noqa: E402
 )
 from elective_orb_core.parser import get_tree  # noqa: E402
 from elective_orb_core.course import Course  # noqa: E402
-from catalog import merge_courses  # noqa: E402
+from catalog import merge_courses, parse_result_courses  # noqa: E402
 
 
 class ParserTests(unittest.TestCase):
@@ -67,6 +68,19 @@ class ParserTests(unittest.TestCase):
         """)
         courses = get_courses(get_tables(tree)[0])
         self.assertEqual(1, len(courses))
+
+    def test_official_result_probe_reads_only_course_tables(self):
+        response = SimpleNamespace(_tree=get_tree("""
+        <html><body>
+          <table class="notice"><tr><td>抽签说明</td></tr></table>
+          <table class="datagrid">
+            <tr><th>课程名</th><th>班号</th><th>开课单位</th></tr>
+            <tr><td>实变函数</td><td>1</td><td>数学科学学院</td></tr>
+          </table>
+        </body></html>
+        """))
+        courses = parse_result_courses(response)
+        self.assertEqual([("实变函数", 1, "数学科学学院")], [(item.name, item.class_no, item.school) for item in courses])
 
     def test_pager_and_nested_rows_are_not_courses(self):
         tree = get_tree("""

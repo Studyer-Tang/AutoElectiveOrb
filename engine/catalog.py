@@ -99,7 +99,18 @@ def merge_courses(*groups):
     return [merged[key] for key in order]
 
 
-def run(config_path):
+def parse_result_courses(response):
+    """Read only course rows exposed by the authenticated official result page."""
+    from elective_orb_core.parser import get_courses, get_tables, table_has_columns
+    basic_columns = ["课程名", "班号", "开课单位"]
+    courses = []
+    for table in get_tables(response._tree):
+        if table_has_columns(table, basic_columns):
+            courses.extend(get_courses(table))
+    return unique_courses(courses)
+
+
+def run(config_path, results_only=False):
     from elective_orb_core.environ import Environ
     Environ().config_ini = config_path
 
@@ -186,6 +197,26 @@ def run(config_path):
             courses.extend(get_courses(table))
         return unique_courses(courses)
 
+    if results_only:
+        stage("读取官方抽签结果页")
+        try:
+            result_courses = parse_result_courses(elective.get_ShowResults())
+            status = "available" if result_courses else "empty"
+            message = ("官方结果接口已返回 %s 门课程。" % len(result_courses)) if result_courses else (
+                "官方结果接口当前没有返回课程；服务器未提供可区分“尚未发布”和“未中签”的信息。"
+            )
+        except NotInOperationTimeError:
+            result_courses = []
+            status = "unavailable"
+            message = "当前学生账号尚不能访问官方结果接口。"
+        payload = {
+            "Status": status,
+            "Message": message,
+            "Results": [course_dict(item) for item in result_courses],
+        }
+        print("LOTTERY_JSON=" + json.dumps(payload, ensure_ascii=False, separators=(",", ":")), flush=True)
+        return
+
     def scan_early_stage():
         elected_courses = []
         planned_courses = []
@@ -247,9 +278,10 @@ def run(config_path):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True)
+    parser.add_argument("--results-only", action="store_true")
     options = parser.parse_args()
     try:
-        run(options.config)
+        run(options.config, results_only=options.results_only)
         return 0
     except Exception as error:
         print("CATALOG_ERROR=" + friendly_error(error), file=sys.stderr, flush=True)

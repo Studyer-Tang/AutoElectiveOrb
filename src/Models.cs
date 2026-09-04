@@ -81,6 +81,20 @@ namespace AutoElectiveOrb
         }
     }
 
+    internal sealed class LotteryResult
+    {
+        public string Status { get; set; }
+        public string Message { get; set; }
+        public List<CatalogCourse> Results { get; set; }
+
+        public LotteryResult()
+        {
+            Status = string.Empty;
+            Message = string.Empty;
+            Results = new List<CatalogCourse>();
+        }
+    }
+
     internal enum EngineState
     {
         Idle,

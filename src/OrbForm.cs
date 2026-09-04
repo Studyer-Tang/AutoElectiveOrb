@@ -60,6 +60,7 @@ namespace AutoElectiveOrb
             var toggle = menu.Items.Add("开始监控");
             var data = menu.Items.Add("打开日志目录");
             var history = menu.Items.Add("查看换课历史");
+            var lottery = menu.Items.Add("查看抽签结果");
             var update = menu.Items.Add("检查更新");
             var startup = new ToolStripMenuItem("开机自动启动") { CheckOnClick = true };
             menu.Items.Add(startup);
@@ -70,6 +71,7 @@ namespace AutoElectiveOrb
             toggle.Click += delegate { settingsForm.ShowPanel(); settingsForm.ToggleEngine(); };
             data.Click += delegate { OpenDataDirectory(); };
             history.Click += delegate { OpenSwapHistory(); };
+            lottery.Click += delegate { settingsForm.ShowPanel(); settingsForm.ShowLotteryResults(); };
             update.Click += delegate { UpdateLauncher.Start(this); };
             startup.Click += delegate { SetStartup(startup.Checked); };
             hide.Click += delegate { Hide(); };
@@ -86,12 +88,14 @@ namespace AutoElectiveOrb
             var openTray = trayMenu.Items.Add("打开设置");
             var toggleTray = trayMenu.Items.Add("开始监控");
             var historyTray = trayMenu.Items.Add("查看换课历史");
+            var lotteryTray = trayMenu.Items.Add("查看抽签结果");
             var updateTray = trayMenu.Items.Add("检查更新");
             var exitTray = trayMenu.Items.Add("退出");
             showTray.Click += delegate { ShowOrb(); };
             openTray.Click += delegate { settingsForm.ShowPanel(); };
             toggleTray.Click += delegate { settingsForm.ShowPanel(); settingsForm.ToggleEngine(); };
             historyTray.Click += delegate { OpenSwapHistory(); };
+            lotteryTray.Click += delegate { settingsForm.ShowPanel(); settingsForm.ShowLotteryResults(); };
             updateTray.Click += delegate { UpdateLauncher.Start(this); };
             exitTray.Click += delegate { allowExit = true; Close(); };
             trayMenu.Opening += delegate { toggleTray.Text = backend.IsRunning ? "停止监控" : "开始监控"; };

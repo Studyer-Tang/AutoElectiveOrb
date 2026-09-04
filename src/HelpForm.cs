@@ -63,6 +63,8 @@ namespace AutoElectiveOrb
                 "单击悬浮球打开设置；拖动可贴边；中键快速开始或停止；Ctrl + Alt + E 随时唤出；关闭设置窗口后仍会驻留托盘。"));
             content.Controls.Add(Section("09  本地识图与安全",
                 "验证码仅在本机使用 ddddocr，连续失败最多重试 5 次。全自动换课会先退旧课，目标可能被抢走，回滚仍无法保证成功。"));
+            content.Controls.Add(Section("10  预选抽签结果",
+                "点击“抽签结果”只读访问本人账号的官方结果页。有课程才表示接口已返回结果；空列表可能是尚未发布，也可能未中签，程序不会绕过服务器权限。"));
             Controls.Add(content);
 
             var close = Theme.Button("知道了", true);

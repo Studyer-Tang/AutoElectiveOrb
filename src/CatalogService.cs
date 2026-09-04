@@ -10,6 +10,25 @@ namespace AutoElectiveOrb
     {
         public static CatalogResult Load(AppSettings settings, string password, SettingsStore store, Func<bool> cancelled = null)
         {
+            var json = Run(settings, password, store, string.Empty, "CATALOG_JSON=", cancelled);
+            var result = new JavaScriptSerializer().Deserialize<CatalogResult>(json);
+            if (result == null) throw new InvalidOperationException("课程数据格式无效。");
+            if (result.Elected == null) result.Elected = new System.Collections.Generic.List<CatalogCourse>();
+            if (result.Plans == null) result.Plans = new System.Collections.Generic.List<CatalogCourse>();
+            return result;
+        }
+
+        public static LotteryResult LoadLotteryResults(AppSettings settings, string password, SettingsStore store, Func<bool> cancelled = null)
+        {
+            var json = Run(settings, password, store, " --results-only", "LOTTERY_JSON=", cancelled);
+            var result = new JavaScriptSerializer().Deserialize<LotteryResult>(json);
+            if (result == null) throw new InvalidOperationException("抽签结果数据格式无效。");
+            if (result.Results == null) result.Results = new System.Collections.Generic.List<CatalogCourse>();
+            return result;
+        }
+
+        private static string Run(AppSettings settings, string password, SettingsStore store, string extraArguments, string marker, Func<bool> cancelled)
+        {
             var engineDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "engine");
             var script = Path.Combine(engineDirectory, "catalog.py");
             if (!File.Exists(script)) throw new FileNotFoundException("缺少课程读取模块", script);
@@ -17,7 +36,7 @@ namespace AutoElectiveOrb
             var start = new ProcessStartInfo
             {
                 FileName = BackendProcess.ResolvePython(),
-                Arguments = "-u \"" + script + "\" --config \"" + config + "\"",
+                Arguments = "-u \"" + script + "\" --config \"" + config + "\"" + extraArguments,
                 WorkingDirectory = engineDirectory,
                 UseShellExecute = false,
                 CreateNoWindow = true,
@@ -65,7 +84,6 @@ namespace AutoElectiveOrb
                 string output, error;
                 lock (outputGate) output = outputBuffer.ToString();
                 lock (errorGate) error = errorBuffer.ToString();
-                const string marker = "CATALOG_JSON=";
                 var position = output.LastIndexOf(marker, StringComparison.Ordinal);
                 if (process.ExitCode != 0 || position < 0)
                 {
@@ -74,12 +92,7 @@ namespace AutoElectiveOrb
                     var message = errorPosition >= 0 ? error.Substring(errorPosition + errorMarker.Length).Trim() : "无法读取课程，请检查账号、网络和选课系统状态。";
                     throw new InvalidOperationException(message);
                 }
-                var json = output.Substring(position + marker.Length).Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)[0];
-                var result = new JavaScriptSerializer().Deserialize<CatalogResult>(json);
-                if (result == null) throw new InvalidOperationException("课程数据格式无效。");
-                if (result.Elected == null) result.Elected = new System.Collections.Generic.List<CatalogCourse>();
-                if (result.Plans == null) result.Plans = new System.Collections.Generic.List<CatalogCourse>();
-                return result;
+                return output.Substring(position + marker.Length).Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)[0];
             }
         }
     }
