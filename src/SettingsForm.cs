@@ -25,6 +25,7 @@ namespace AutoElectiveOrb
         private readonly Label status;
         private readonly Button startStop;
         private readonly Timer countdownTimer;
+        private LotteryResultsForm lotteryResultsForm;
 
         public SettingsForm(SettingsStore store, BackendProcess backend, LotteryWatchService lotteryWatcher)
         {
@@ -236,6 +237,13 @@ namespace AutoElectiveOrb
 
         public void ShowLotteryResults()
         {
+            if (lotteryResultsForm != null && !lotteryResultsForm.IsDisposed)
+            {
+                if (!lotteryResultsForm.Visible) lotteryResultsForm.Show();
+                lotteryResultsForm.WindowState = FormWindowState.Normal;
+                lotteryResultsForm.Activate();
+                return;
+            }
             if (backend.IsRunning)
             {
                 MessageBox.Show(this, "为避免选课系统判定会话冲突，请先停止当前监控。", "正在监控", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -263,7 +271,9 @@ namespace AutoElectiveOrb
                 OrbX = current.OrbX,
                 OrbY = current.OrbY
             };
-            using (var window = new LotteryResultsForm(snapshot, secret, store, lotteryWatcher)) window.ShowDialog(this);
+            lotteryResultsForm = new LotteryResultsForm(snapshot, secret, store, lotteryWatcher);
+            lotteryResultsForm.FormClosed += delegate { lotteryResultsForm = null; };
+            lotteryResultsForm.Show();
         }
 
         private void DeleteSelectedCourses()
