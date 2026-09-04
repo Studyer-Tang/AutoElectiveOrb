@@ -62,6 +62,8 @@ namespace AutoElectiveOrb
         public int UsedQuota { get; set; }
         public int RemainingQuota { get; set; }
         public bool QuotaKnown { get; set; }
+        public string Outcome { get; set; }
+        public bool? Selected { get; set; }
 
         public string Key { get { return (Name ?? string.Empty) + "\u001f" + ClassNo + "\u001f" + (School ?? string.Empty); } }
     }
@@ -85,6 +87,11 @@ namespace AutoElectiveOrb
     {
         public string Status { get; set; }
         public string Message { get; set; }
+        public int TotalCount { get; set; }
+        public int SelectedCount { get; set; }
+        public int NotSelectedCount { get; set; }
+        public int PendingCount { get; set; }
+        public int UnknownCount { get; set; }
         public List<CatalogCourse> Results { get; set; }
 
         public LotteryResult()

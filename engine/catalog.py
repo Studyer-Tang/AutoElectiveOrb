@@ -110,6 +110,21 @@ def parse_result_courses(response):
     return unique_courses(courses)
 
 
+def parse_result_rows(response):
+    from elective_orb_core.parser import get_lottery_results, get_tables, table_has_columns
+    rows = []
+    seen = set()
+    for table in get_tables(response._tree):
+        if not table_has_columns(table, ["课程名", "班号", "开课单位"]):
+            continue
+        for course, outcome, selected in get_lottery_results(table):
+            key = course_key(course)
+            if key not in seen:
+                seen.add(key)
+                rows.append((course, outcome, selected))
+    return rows
+
+
 def run(config_path, results_only=False):
     from elective_orb_core.environ import Environ
     Environ().config_ini = config_path
@@ -200,19 +215,32 @@ def run(config_path, results_only=False):
     if results_only:
         stage("读取官方抽签结果页")
         try:
-            result_courses = parse_result_courses(elective.get_ShowResults())
-            status = "available" if result_courses else "empty"
-            message = ("官方结果接口已返回 %s 门课程。" % len(result_courses)) if result_courses else (
+            result_rows = parse_result_rows(elective.get_ShowResults())
+            selected_count = sum(item[2] is True for item in result_rows)
+            rejected_count = sum(item[2] is False for item in result_rows)
+            pending_count = sum(item[1] in ("抽签中", "待抽签", "处理中") for item in result_rows)
+            unknown_count = len(result_rows) - selected_count - rejected_count - pending_count
+            status = "available" if result_rows else "empty"
+            message = ("参与抽签 %s 门：已选中 %s 门，未选中 %s 门，抽签中 %s 门，未知 %s 门。" % (
+                len(result_rows), selected_count, rejected_count, pending_count, unknown_count
+            )) if result_rows else (
                 "官方结果接口当前没有返回课程；服务器未提供可区分“尚未发布”和“未中签”的信息。"
             )
         except NotInOperationTimeError:
-            result_courses = []
+            result_rows = []
+            selected_count = rejected_count = pending_count = unknown_count = 0
             status = "unavailable"
             message = "当前学生账号尚不能访问官方结果接口。"
         payload = {
             "Status": status,
             "Message": message,
-            "Results": [course_dict(item) for item in result_courses],
+            "TotalCount": len(result_rows),
+            "SelectedCount": selected_count,
+            "NotSelectedCount": rejected_count,
+            "PendingCount": pending_count,
+            "UnknownCount": unknown_count,
+            "Results": [dict(course_dict(course), Outcome=outcome, Selected=selected)
+                        for course, outcome, selected in result_rows],
         }
         print("LOTTERY_JSON=" + json.dumps(payload, ensure_ascii=False, separators=(",", ":")), flush=True)
         return

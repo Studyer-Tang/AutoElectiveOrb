@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.join(ROOT, "engine"))
 from elective_orb_core.parser import (  # noqa: E402
     get_courses,
     get_courses_with_detail,
+    get_lottery_results,
     get_table_header,
     get_tables,
 )
@@ -74,13 +75,17 @@ class ParserTests(unittest.TestCase):
         <html><body>
           <table class="notice"><tr><td>抽签说明</td></tr></table>
           <table class="datagrid">
-            <tr><th>课程名</th><th>班号</th><th>开课单位</th></tr>
-            <tr><td>实变函数</td><td>1</td><td>数学科学学院</td></tr>
+            <tr><th>课程名</th><th>班号</th><th>开课单位</th><th>抽签结果</th></tr>
+            <tr><td>实变函数</td><td>1</td><td>数学科学学院</td><td>已选中</td></tr>
+            <tr><td>泛函分析</td><td>2</td><td>数学科学学院</td><td>未选中</td></tr>
+            <tr><td>常微分方程</td><td>3</td><td>数学科学学院</td><td>抽签中</td></tr>
           </table>
         </body></html>
         """))
         courses = parse_result_courses(response)
-        self.assertEqual([("实变函数", 1, "数学科学学院")], [(item.name, item.class_no, item.school) for item in courses])
+        self.assertEqual(3, len(courses))
+        rows = get_lottery_results(get_tables(response._tree)[0])
+        self.assertEqual([("已选中", True), ("未选中", False), ("抽签中", None)], [(outcome, selected) for _, outcome, selected in rows])
 
     def test_pager_and_nested_rows_are_not_courses(self):
         tree = get_tree("""

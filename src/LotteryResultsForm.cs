@@ -60,16 +60,18 @@ namespace AutoElectiveOrb
             results.Columns.Add("Class", "班号");
             results.Columns.Add("School", "开课单位");
             results.Columns.Add("Teacher", "教师");
-            results.Columns[0].FillWeight = 30;
-            results.Columns[1].FillWeight = 12;
-            results.Columns[2].FillWeight = 35;
-            results.Columns[3].FillWeight = 23;
+            results.Columns.Add("Outcome", "抽签状态");
+            results.Columns[0].FillWeight = 27;
+            results.Columns[1].FillWeight = 10;
+            results.Columns[2].FillWeight = 31;
+            results.Columns[3].FillWeight = 18;
+            results.Columns[4].FillWeight = 14;
             results.SetBounds(24, 132, 670, 260);
             Controls.Add(results);
 
             Controls.Add(new Label
             {
-                Text = "说明：有课程表示官方接口已向你的账号返回结果；空列表不能证明落选，也可能是学校尚未发布。程序不会尝试绕过服务器权限。",
+                Text = "说明：只有明确标为“已选中”的课程才算抽中；“未选中”或“未知”均不算成功。空列表不能证明落选，也可能是学校尚未发布。",
                 ForeColor = Color.FromArgb(253, 186, 116),
                 Location = new Point(25, 407),
                 Size = new Size(669, 44)
@@ -113,9 +115,14 @@ namespace AutoElectiveOrb
                 var value = (LotteryResult)args.Result;
                 results.Rows.Clear();
                 foreach (var course in value.Results)
-                    results.Rows.Add(course.Name, course.ClassNo, course.School, course.Teacher ?? string.Empty);
+                {
+                    var index = results.Rows.Add(course.Name, course.ClassNo, course.School, course.Teacher ?? string.Empty, course.Outcome ?? "未知");
+                    results.Rows[index].DefaultCellStyle.ForeColor = course.Selected == true ? Theme.Green
+                        : course.Selected == false ? Theme.Red : Theme.Secondary;
+                }
                 status.Text = value.Message;
-                status.ForeColor = value.Status == "available" ? Theme.Green : value.Status == "empty" ? Color.FromArgb(253, 186, 116) : Theme.Secondary;
+                status.ForeColor = value.Results.Exists(course => course.Selected == true) ? Theme.Green
+                    : value.Status == "available" || value.Status == "empty" ? Color.FromArgb(253, 186, 116) : Theme.Secondary;
             };
             current.RunWorkerAsync();
         }

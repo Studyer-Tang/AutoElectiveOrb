@@ -140,6 +140,45 @@ def get_courses(table):
         cs.append(c)
     return cs
 
+def classify_lottery_outcome(value, allow_boolean=False):
+    text = re.sub(r'\s+', '', value or '')
+    if any(label in text for label in ('未选中', '未中签', '未抽中', '未录取', '落选', '失败')):
+        return False
+    if any(label in text for label in ('已选中', '已中签', '中签', '已抽中', '已录取', '录取成功')):
+        return True
+    if allow_boolean and text in ('是', '成功'):
+        return True
+    if allow_boolean and text in ('否', '不通过'):
+        return False
+    return None
+
+def get_lottery_results(table):
+    """Return (course, raw outcome, selected?) rows from the official result table."""
+    header = get_table_header(table)
+    rows = get_table_trs(table)
+    indexes = _column_indexes(header, ["课程名", "班号", "开课单位"])
+    teacher_ix = header.index("教师") if "教师" in header else None
+    outcome_ix = next((index for index, name in enumerate(header)
+                       if any(token in name for token in ("抽签结果", "选课结果", "中签", "选中", "状态"))), None)
+    results = []
+    for row in rows:
+        parsed = _course_cells(row, indexes)
+        if parsed is None:
+            continue
+        cells, (name, class_no, school) = parsed
+        teacher = _optional_cell_text(cells, teacher_ix)
+        outcome = _optional_cell_text(cells, outcome_ix)
+        selected = classify_lottery_outcome(outcome, allow_boolean=outcome_ix is not None)
+        if selected is None:
+            for cell in cells:
+                candidate = _normalized_text(cell)
+                classified = classify_lottery_outcome(candidate)
+                if classified is not None:
+                    outcome, selected = candidate, classified
+                    break
+        results.append((Course(name, class_no, school, teacher=teacher), outcome or "未知", selected))
+    return results
+
 def get_courses_with_detail(table, require_action=True):
     header = get_table_header(table)
     trs = get_table_trs(table)
