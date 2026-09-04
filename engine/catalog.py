@@ -125,7 +125,42 @@ def parse_result_rows(response):
     return rows
 
 
-def run(config_path, results_only=False):
+def lottery_payload(result_rows):
+    selected_count = sum(item[2] is True for item in result_rows)
+    rejected_count = sum(item[2] is False for item in result_rows)
+    pending_count = sum(item[1] in ("抽签中", "待抽签", "处理中") for item in result_rows)
+    unknown_count = len(result_rows) - selected_count - rejected_count - pending_count
+    status = "available" if result_rows else "empty"
+    message = ("参与抽签 %s 门：已选中 %s 门，未选中 %s 门，抽签中 %s 门，未知 %s 门。" % (
+        len(result_rows), selected_count, rejected_count, pending_count, unknown_count
+    )) if result_rows else "官方结果接口当前没有返回课程；服务器未提供可区分“尚未发布”和“未中签”的信息。"
+    return {
+        "Status": status,
+        "Message": message,
+        "TotalCount": len(result_rows),
+        "SelectedCount": selected_count,
+        "NotSelectedCount": rejected_count,
+        "PendingCount": pending_count,
+        "UnknownCount": unknown_count,
+        "Results": [dict(course_dict(course), Outcome=outcome, Selected=selected)
+                    for course, outcome, selected in result_rows],
+    }
+
+
+def lottery_changes(previous, current):
+    if previous is None:
+        return []
+    changes = []
+    for key, item in current.items():
+        old = previous.get(key)
+        if old is None or old["Outcome"] != item["Outcome"]:
+            change = dict(item)
+            change["PreviousOutcome"] = old["Outcome"] if old is not None else "未出现"
+            changes.append(change)
+    return changes
+
+
+def run(config_path, results_only=False, watch_results=False, watch_interval=60):
     from elective_orb_core.environ import Environ
     Environ().config_ini = config_path
 
@@ -150,21 +185,25 @@ def run(config_path, results_only=False):
     password = config.iaaa_password
     user_agent = random.choice(USER_AGENT_LIST)
 
-    iaaa = IAAAClient(timeout=config.iaaa_client_timeout)
-    iaaa.set_user_agent(user_agent)
-    stage("打开统一认证")
-    iaaa.oauth_home()
-    stage("统一认证登录")
-    login = iaaa.oauth_login(username, password)
-    token = login.json()["token"]
+    def authenticate():
+        iaaa = IAAAClient(timeout=config.iaaa_client_timeout)
+        iaaa.set_user_agent(user_agent)
+        stage("打开统一认证")
+        iaaa.oauth_home()
+        stage("统一认证登录")
+        login = iaaa.oauth_login(username, password)
+        token = login.json()["token"]
 
-    elective = ElectiveClient(id="catalog", timeout=config.elective_client_timeout)
-    elective.set_user_agent(user_agent)
-    stage("进入选课系统")
-    response = elective.sso_login(token)
-    if config.is_dual_degree:
-        stage("选择主修或辅双身份")
-        response = elective.sso_login_dual_degree(get_sida(response), config.identity, response.url)
+        client = ElectiveClient(id="catalog", timeout=config.elective_client_timeout)
+        client.set_user_agent(user_agent)
+        stage("进入选课系统")
+        response = client.sso_login(token)
+        if config.is_dual_degree:
+            stage("选择主修或辅双身份")
+            response = client.sso_login_dual_degree(get_sida(response), config.identity, response.url)
+        return client
+
+    elective = authenticate()
 
     basic_columns = ["课程名", "班号", "开课单位"]
 
@@ -212,36 +251,38 @@ def run(config_path, results_only=False):
             courses.extend(get_courses(table))
         return unique_courses(courses)
 
-    if results_only:
+    def read_lottery():
         stage("读取官方抽签结果页")
         try:
             result_rows = parse_result_rows(elective.get_ShowResults())
-            selected_count = sum(item[2] is True for item in result_rows)
-            rejected_count = sum(item[2] is False for item in result_rows)
-            pending_count = sum(item[1] in ("抽签中", "待抽签", "处理中") for item in result_rows)
-            unknown_count = len(result_rows) - selected_count - rejected_count - pending_count
-            status = "available" if result_rows else "empty"
-            message = ("参与抽签 %s 门：已选中 %s 门，未选中 %s 门，抽签中 %s 门，未知 %s 门。" % (
-                len(result_rows), selected_count, rejected_count, pending_count, unknown_count
-            )) if result_rows else (
-                "官方结果接口当前没有返回课程；服务器未提供可区分“尚未发布”和“未中签”的信息。"
-            )
+            return lottery_payload(result_rows)
         except NotInOperationTimeError:
-            result_rows = []
-            selected_count = rejected_count = pending_count = unknown_count = 0
-            status = "unavailable"
-            message = "当前学生账号尚不能访问官方结果接口。"
-        payload = {
-            "Status": status,
-            "Message": message,
-            "TotalCount": len(result_rows),
-            "SelectedCount": selected_count,
-            "NotSelectedCount": rejected_count,
-            "PendingCount": pending_count,
-            "UnknownCount": unknown_count,
-            "Results": [dict(course_dict(course), Outcome=outcome, Selected=selected)
-                        for course, outcome, selected in result_rows],
-        }
+            payload = lottery_payload([])
+            payload.update(Status="unavailable", Message="当前学生账号尚不能访问官方结果接口。")
+            return payload
+
+    if watch_results:
+        previous = None
+        interval = max(60, int(watch_interval))
+        while True:
+            try:
+                payload = read_lottery()
+                current = {(item["Name"], item["ClassNo"], item["School"]): item for item in payload["Results"]}
+                changes = lottery_changes(previous, current)
+                payload["IsBaseline"] = previous is None
+                payload["Changes"] = changes
+                print("LOTTERY_WATCH_JSON=" + json.dumps(payload, ensure_ascii=False, separators=(",", ":")), flush=True)
+                previous = current
+            except Exception as error:
+                print("LOTTERY_WATCH_ERROR=" + friendly_error(error), file=sys.stderr, flush=True)
+                try:
+                    elective = authenticate()
+                except Exception as login_error:
+                    print("LOTTERY_WATCH_ERROR=" + friendly_error(login_error), file=sys.stderr, flush=True)
+            time.sleep(interval)
+
+    if results_only:
+        payload = read_lottery()
         print("LOTTERY_JSON=" + json.dumps(payload, ensure_ascii=False, separators=(",", ":")), flush=True)
         return
 
@@ -307,9 +348,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True)
     parser.add_argument("--results-only", action="store_true")
+    parser.add_argument("--watch-results", action="store_true")
+    parser.add_argument("--watch-interval", type=int, default=60)
     options = parser.parse_args()
     try:
-        run(options.config, results_only=options.results_only)
+        run(options.config, results_only=options.results_only,
+            watch_results=options.watch_results, watch_interval=options.watch_interval)
         return 0
     except Exception as error:
         print("CATALOG_ERROR=" + friendly_error(error), file=sys.stderr, flush=True)

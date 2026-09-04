@@ -12,6 +12,7 @@ namespace AutoElectiveOrb
     {
         private readonly SettingsStore store;
         private readonly BackendProcess backend;
+        private readonly LotteryWatchService lotteryWatcher;
         private readonly TextBox studentId;
         private readonly TextBox password;
         private readonly NumericUpDown interval;
@@ -25,10 +26,11 @@ namespace AutoElectiveOrb
         private readonly Button startStop;
         private readonly Timer countdownTimer;
 
-        public SettingsForm(SettingsStore store, BackendProcess backend)
+        public SettingsForm(SettingsStore store, BackendProcess backend, LotteryWatchService lotteryWatcher)
         {
             this.store = store;
             this.backend = backend;
+            this.lotteryWatcher = lotteryWatcher;
             Text = "AutoElective Orb · 本地选课助手";
             ClientSize = new Size(700, 720);
             MinimumSize = new Size(650, 680);
@@ -213,6 +215,7 @@ namespace AutoElectiveOrb
             if (backend.IsRunning) { backend.Stop(); return; }
             try
             {
+                if (lotteryWatcher.IsRunning) lotteryWatcher.Stop();
                 var settings = SaveFromUi(true);
                 var secret = password.Text;
                 if (string.IsNullOrEmpty(secret)) secret = CredentialStore.Read(settings.StudentId);
@@ -260,7 +263,7 @@ namespace AutoElectiveOrb
                 OrbX = current.OrbX,
                 OrbY = current.OrbY
             };
-            using (var window = new LotteryResultsForm(snapshot, secret, store)) window.ShowDialog(this);
+            using (var window = new LotteryResultsForm(snapshot, secret, store, lotteryWatcher)) window.ShowDialog(this);
         }
 
         private void DeleteSelectedCourses()

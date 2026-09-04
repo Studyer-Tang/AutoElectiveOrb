@@ -16,7 +16,7 @@ from elective_orb_core.parser import (  # noqa: E402
 )
 from elective_orb_core.parser import get_tree  # noqa: E402
 from elective_orb_core.course import Course  # noqa: E402
-from catalog import merge_courses, parse_result_courses  # noqa: E402
+from catalog import lottery_changes, lottery_payload, merge_courses, parse_result_courses  # noqa: E402
 
 
 class ParserTests(unittest.TestCase):
@@ -86,6 +86,17 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(3, len(courses))
         rows = get_lottery_results(get_tables(response._tree)[0])
         self.assertEqual([("已选中", True), ("未选中", False), ("抽签中", None)], [(outcome, selected) for _, outcome, selected in rows])
+        payload = lottery_payload(rows)
+        self.assertEqual((3, 1, 1, 1, 0), (
+            payload["TotalCount"], payload["SelectedCount"], payload["NotSelectedCount"],
+            payload["PendingCount"], payload["UnknownCount"]))
+        before = {("实变函数", 1, "数学科学学院"): {"Outcome": "抽签中", "Name": "实变函数"}}
+        after = {
+            ("实变函数", 1, "数学科学学院"): {"Outcome": "已选中", "Name": "实变函数"},
+            ("泛函分析", 2, "数学科学学院"): {"Outcome": "未选中", "Name": "泛函分析"},
+        }
+        changes = lottery_changes(before, after)
+        self.assertEqual(["抽签中", "未出现"], [item["PreviousOutcome"] for item in changes])
 
     def test_pager_and_nested_rows_are_not_courses(self):
         tree = get_tree("""

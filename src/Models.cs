@@ -63,6 +63,7 @@ namespace AutoElectiveOrb
         public int RemainingQuota { get; set; }
         public bool QuotaKnown { get; set; }
         public string Outcome { get; set; }
+        public string PreviousOutcome { get; set; }
         public bool? Selected { get; set; }
 
         public string Key { get { return (Name ?? string.Empty) + "\u001f" + ClassNo + "\u001f" + (School ?? string.Empty); } }
@@ -83,7 +84,7 @@ namespace AutoElectiveOrb
         }
     }
 
-    internal sealed class LotteryResult
+    internal class LotteryResult
     {
         public string Status { get; set; }
         public string Message { get; set; }
@@ -100,6 +101,14 @@ namespace AutoElectiveOrb
             Message = string.Empty;
             Results = new List<CatalogCourse>();
         }
+    }
+
+    internal sealed class LotteryWatchUpdate : LotteryResult
+    {
+        public bool IsBaseline { get; set; }
+        public List<CatalogCourse> Changes { get; set; }
+
+        public LotteryWatchUpdate() { Changes = new List<CatalogCourse>(); }
     }
 
     internal enum EngineState

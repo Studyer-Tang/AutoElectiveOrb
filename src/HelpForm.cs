@@ -65,6 +65,8 @@ namespace AutoElectiveOrb
                 "验证码仅在本机使用 ddddocr，连续失败最多重试 5 次。全自动换课会先退旧课，目标可能被抢走，回滚仍无法保证成功。"));
             content.Controls.Add(Section("10  预选抽签结果",
                 "点击“抽签结果”只读访问本人账号的官方结果页，逐门显示“已选中、未选中、抽签中”等原始状态；只有“已选中”才算抽中。"));
+            content.Controls.Add(Section("11  抽签结果哨兵",
+                "启动后程序驻留托盘并复用登录会话，每 60 秒只读检查一次；状态变化时立即通知，并将首次发现时间写入本地变化记录。"));
             Controls.Add(content);
 
             var close = Theme.Button("知道了", true);

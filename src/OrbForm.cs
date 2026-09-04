@@ -13,6 +13,7 @@ namespace AutoElectiveOrb
     {
         private readonly SettingsStore store;
         private readonly BackendProcess backend;
+        private readonly LotteryWatchService lotteryWatcher;
         private readonly SettingsForm settingsForm;
         private readonly NotifyIcon tray;
         private readonly Image orbArtwork;
@@ -39,7 +40,8 @@ namespace AutoElectiveOrb
         {
             store = new SettingsStore();
             backend = new BackendProcess();
-            settingsForm = new SettingsForm(store, backend);
+            lotteryWatcher = new LotteryWatchService();
+            settingsForm = new SettingsForm(store, backend, lotteryWatcher);
             Text = "AutoElective Orb";
             ClientSize = new Size(64, 64);
             FormBorderStyle = FormBorderStyle.None;
@@ -104,6 +106,7 @@ namespace AutoElectiveOrb
 
             backend.StateChanged += OnStateChanged;
             backend.Notification += OnNotification;
+            lotteryWatcher.Notification += OnNotification;
             animation = new Timer { Interval = 120 };
             animation.Tick += delegate { pulse = (pulse + 1) % 30; Invalidate(); };
 
@@ -299,6 +302,7 @@ namespace AutoElectiveOrb
             animation.Stop();
             animation.Dispose();
             backend.Dispose();
+            lotteryWatcher.Dispose();
             settingsForm.Dispose();
             tray.Visible = false;
             tray.Dispose();
