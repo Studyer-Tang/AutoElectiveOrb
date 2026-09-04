@@ -4,6 +4,6 @@
 # modified: 2019-09-08
 
 from .captcha import Captcha
-from .local import LocalDdddOcrRecognizer
+from .ttshitu import TTShituRecognizer
 
-__all__ = ["Captcha", "LocalDdddOcrRecognizer"]
+__all__ = ["Captcha", "TTShituRecognizer"]

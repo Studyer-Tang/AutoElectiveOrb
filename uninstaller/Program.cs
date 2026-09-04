@@ -65,7 +65,7 @@ namespace AutoElectiveOrbUninstaller
             };
             Controls.Add(description);
 
-            removeCredentials = Option("删除 Windows 凭据管理器中保存的统一认证凭据", 106, true);
+            removeCredentials = Option("删除 Windows 凭据管理器中的统一认证与 TT 识图凭据", 106, true);
             removeData = Option("删除本地设置、缓存、日志和换课历史", 146, true);
             removeProgramFiles = Option("删除便携包中的程序文件（卸载器自身除外）", 186, isPortablePackage);
             removeProgramFiles.Enabled = isPortablePackage;
@@ -205,9 +205,15 @@ namespace AutoElectiveOrbUninstaller
 
         public static void DeleteAll()
         {
+            DeleteMatching("AutoElectiveOrb:IAAA:*");
+            DeleteMatching("AutoElectiveOrb:TTShitu:*");
+        }
+
+        private static void DeleteMatching(string filter)
+        {
             uint count;
             IntPtr credentials;
-            if (!CredEnumerate("AutoElectiveOrb:IAAA:*", 0, out count, out credentials))
+            if (!CredEnumerate(filter, 0, out count, out credentials))
             {
                 var error = Marshal.GetLastWin32Error();
                 if (error == NotFound) return;

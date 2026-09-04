@@ -291,7 +291,7 @@ namespace AutoElectiveOrb
 
         private void OnFormClosing(object sender, FormClosingEventArgs args)
         {
-            if (allowExit) return;
+            if (allowExit || args.CloseReason == CloseReason.ApplicationExitCall) return;
             args.Cancel = true;
             Hide();
         }

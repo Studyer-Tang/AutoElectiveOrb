@@ -22,4 +22,4 @@ class Environ(object, metaclass=Singleton):
         self.ignored = {} # {Course, reason}
         self.stop_event = Event()
         self.worker_failures = {}
-        self.local_recognizer = None
+        self.captcha_recognizer = None

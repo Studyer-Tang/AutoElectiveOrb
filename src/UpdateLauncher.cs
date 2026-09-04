@@ -17,6 +17,9 @@ namespace AutoElectiveOrb
                 if (File.Exists(updater))
                 {
                     Process.Start(new ProcessStartInfo(updater) { UseShellExecute = true });
+                    // Exit cleanly so the backend process releases the bundled
+                    // runtime before the updater replaces program files.
+                    Application.Exit();
                     return;
                 }
 

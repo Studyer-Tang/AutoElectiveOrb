@@ -23,6 +23,7 @@ _LABELS = {
     "rollback_not_needed": "无需回滚",
     "rollback_success": "回滚成功",
     "rollback_failed": "回滚失败",
+    "manual_review": "状态待人工核对",
 }
 
 
@@ -85,5 +86,8 @@ def find_incomplete_transactions():
                     continue
     except OSError:
         return []
-    uncertain = {"drop_requested", "drop_confirmed", "target_requested", "rollback_started", "rollback_failed"}
+    uncertain = {
+        "drop_requested", "drop_confirmed", "target_requested", "rollback_started",
+        "rollback_failed", "manual_review",
+    }
     return sorted(transaction_id for transaction_id, status in latest.items() if status in uncertain)

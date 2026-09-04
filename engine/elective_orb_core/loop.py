@@ -16,7 +16,7 @@ from requests.exceptions import RequestException
 
 from . import __date__, __version__
 from ._internal import mkdir
-from .captcha import LocalDdddOcrRecognizer
+from .captcha import TTShituRecognizer
 from .config import AutoElectiveConfig
 from .const import USER_AGENT_LIST, WEB_LOG_DIR
 from .elective import ElectiveClient
@@ -90,8 +90,9 @@ config.check_identify(identity)
 _USER_WEB_LOG_DIR = os.path.join(WEB_LOG_DIR, config.get_user_subpath())
 mkdir(_USER_WEB_LOG_DIR)
 
-recognizer = environ.local_recognizer or LocalDdddOcrRecognizer()
+recognizer = environ.captcha_recognizer or TTShituRecognizer()
 RECOGNIZER_MAX_ATTEMPT = 5
+POSTCONDITION_MAX_ATTEMPT = 3
 AUTO_SCAN_PAGE_SIZE = 20
 AUTO_SCAN_MAX_PAGES = 100
 AUTO_SCAN_PAGE_INTERVAL = 0.5
@@ -168,10 +169,12 @@ def _validate_captcha(elective):
             captcha = recognizer.recognize(r.content)
         except RecognizerError as e:
             ferr.error(e)
+            cout.warning("验证码识别第 %d/%d 次失败：%s" % (
+                attempt, RECOGNIZER_MAX_ATTEMPT, e))
             _add_error(e)
             environ.stop_event.wait(min(attempt, 3))
             continue
-        cout.info("Recognition result: %s" % captcha.code)
+        cout.info("Recognition result: engine=%s format=5-char-alnum" % (captcha.engine or "unknown"))
         r = elective.get_Validate(username, captcha.code)
         try:
             result = r.json()["valid"]
@@ -186,6 +189,44 @@ def _validate_captcha(elective):
     raise RecognizerError(msg="Captcha validation failed after %d attempts" % RECOGNIZER_MAX_ATTEMPT)
 
 
+def _read_swap_snapshot(elective, purpose):
+    """Read authoritative post-operation state with bounded retries."""
+    last_error = None
+    for attempt in range(1, POSTCONDITION_MAX_ATTEMPT + 1):
+        try:
+            _, elected_courses, _, plans = _scan_all_supply_pages(elective, force_full=True)
+            return elected_courses, plans
+        except Exception as error:
+            last_error = error
+            ferr.error(error)
+            cout.warning("课表核验（%s）第 %d/%d 次读取失败" % (
+                purpose, attempt, POSTCONDITION_MAX_ATTEMPT))
+            if attempt < POSTCONDITION_MAX_ATTEMPT:
+                environ.stop_event.wait(attempt)
+    raise OperationFailedError(
+        msg="Unable to verify %s after %d attempts: %s" % (
+            purpose, POSTCONDITION_MAX_ATTEMPT, last_error))
+
+
+def _prepare_swap_target_submission(elective, drop_course, target_course):
+    """Confirm the drop, refresh the target link, then renew captcha state."""
+    _, elected_courses, _, plans = _scan_all_supply_pages(elective, force_full=True)
+    if drop_course in elected_courses:
+        raise OperationFailedError(msg="Swap drop was not confirmed")
+
+    refreshed_target = next((item for item in plans if item == target_course), None)
+    if (refreshed_target is None or refreshed_target.status is None
+            or not refreshed_target.is_available()):
+        return None
+
+    # A drop or page refresh can clear the server-side captcha authorization.
+    # Retain the pre-drop check for safety, then renew it immediately before
+    # the target-course request.
+    cout.info("换课目标提交前重新校验验证码")
+    _validate_captcha(elective)
+    return refreshed_target
+
+
 def _attempt_swap_rollback(elective, drop_course, transaction_id=None, target_course=None):
     """Best-effort rollback after a swap election failure.
 
@@ -198,36 +239,61 @@ def _attempt_swap_rollback(elective, drop_course, transaction_id=None, target_co
     try:
         # The original course is not necessarily one of the configured target
         # courses, so rollback must bypass the target-page cache.
-        _, elected_courses, _, plans = _scan_all_supply_pages(elective, force_full=True)
-        if drop_course in elected_courses:
-            cout.info("Swap rollback not needed: original course is still elected")
+        elected_courses, plans = _read_swap_snapshot(elective, "回滚前状态")
+        if target_course is not None and target_course in elected_courses:
+            cout.info("刷新课表已确认目标课程选中，取消回滚")
             if transaction_id:
-                append_swap_event(transaction_id, "rollback_not_needed", drop_course, target_course)
-            return True
+                append_swap_event(transaction_id, "success", drop_course, target_course,
+                                  "刷新课表后确认目标课程已选中")
+            return "target_confirmed"
+        if drop_course in elected_courses:
+            cout.info("刷新课表已确认原课程仍在，无需回滚")
+            if transaction_id:
+                append_swap_event(transaction_id, "rollback_not_needed", drop_course, target_course,
+                                  "刷新课表后确认原课程仍在")
+            return "original_confirmed"
         original = next((course for course in plans if course == drop_course), None)
         if original is None or original.status is None or not original.is_available():
             cout.critical("Rollback unavailable: original course is not electable or has no quota")
             if transaction_id:
                 append_swap_event(transaction_id, "rollback_failed", drop_course, target_course, "原课程不可选或无余量")
-            return False
+            return "failed"
         _validate_captcha(elective)
         try:
             elective.get_ElectSupplement(original.href)
         except (ElectionSuccess, ElectionRepeatedError):
-            cout.info("Swap rollback succeeded: %s" % drop_course)
+            pass
+        except Exception as error:
+            ferr.error(error)
+            cout.warning("回滚提交返回错误，正在刷新课表核验最终状态")
+
+        verified_elected, _ = _read_swap_snapshot(elective, "回滚结果")
+        target_selected = target_course is not None and target_course in verified_elected
+        original_selected = drop_course in verified_elected
+        if target_selected:
+            message = "目标课程已选中" + ("，原课程也仍在，请核对规则" if original_selected else "")
+            cout.warning("回滚核验时发现目标课程已经选中，程序不再继续操作")
             if transaction_id:
-                append_swap_event(transaction_id, "rollback_success", drop_course, target_course)
-            return True
-        cout.critical("Swap rollback was not confirmed")
+                append_swap_event(transaction_id, "success", drop_course, target_course, message)
+            return "target_confirmed"
+        if original_selected:
+            cout.info("刷新课表已确认原课程恢复：%s" % drop_course)
+            if transaction_id:
+                append_swap_event(transaction_id, "rollback_success", drop_course, target_course,
+                                  "刷新课表后确认原课程已恢复")
+            return "original_confirmed"
+
+        cout.critical("刷新课表后未确认回滚成功")
         if transaction_id:
-            append_swap_event(transaction_id, "rollback_failed", drop_course, target_course, "学校页面未确认回滚成功")
+            append_swap_event(transaction_id, "rollback_failed", drop_course, target_course,
+                              "刷新课表后仍未发现原课程或目标课程")
     except Exception as e:
         ferr.exception(e)
         _add_error(e)
         cout.critical("Swap rollback failed: %s" % e)
         if transaction_id:
             append_swap_event(transaction_id, "rollback_failed", drop_course, target_course, e)
-    return False
+    return "failed"
 
 
 def _scan_all_supply_pages(elective, force_full=False):
@@ -602,7 +668,7 @@ def run_elective_loop():
             cout.info("")
 
         if len(current) == 0:
-            cout.info("No tasks")
+            cout.info("No actionable tasks remain")
             cout.info("Quit elective loop")
             with suppress(Full):
                 reloginPool.put_nowait(killedElective) # kill signal
@@ -726,12 +792,9 @@ def run_elective_loop():
                         append_swap_event(swap_transaction, "drop_requested", swap_drop_course, course)
                         elective.drop_course(swap_drop_href)
                         swap_dropped = True
-                        _, verified_elected, _, refreshed_plans = _scan_all_supply_pages(elective)
-                        if swap_drop_course in verified_elected:
-                            raise OperationFailedError(msg="Swap drop was not confirmed")
-                        refreshed_target = next((item for item in refreshed_plans if item == course), None)
-                        if (refreshed_target is None or refreshed_target.status is None
-                                or not refreshed_target.is_available()):
+                        refreshed_target = _prepare_swap_target_submission(
+                            elective, swap_drop_course, course)
+                        if refreshed_target is None:
                             cout.warning("Target quota disappeared immediately after drop")
                             _attempt_swap_rollback(elective, swap_drop_course, swap_transaction, course)
                             _ignore_course(course, "Swap aborted; target quota disappeared")
@@ -750,6 +813,7 @@ def run_elective_loop():
                 ## try to elect
 
                 election_succeeded = False
+                submission_error = None
                 try:
 
                     if swap_transaction:
@@ -807,7 +871,7 @@ def run_elective_loop():
 
                 except ElectionFailedError as e:
                     ferr.error(e)
-                    cout.warning("ElectionFailedError encountered") # 具体原因不明，且不能马上重试
+                    cout.warning("Election failed: %s" % e)
                     _add_error(e)
 
                 except QuotaLimitedError as e:
@@ -831,13 +895,12 @@ def run_elective_loop():
                     # 根据这个动态更新的 elected 它将会被提前地忽略（而不是留到下一循环回合的开始时才被忽略）
                     # --------------------------------------------------------------------------
                     r = e.response  # get response from error ... a bit ugly
-                    _, elected_table = _get_supply_tables(r)
-                    # use clear() + extend() instead of op `=` to ensure `id(elected)` doesn't change
-                    elected.clear()
-                    elected.extend(get_courses(elected_table))
                     election_succeeded = True
-                    if swap_transaction:
-                        append_swap_event(swap_transaction, "success", swap_drop_course, course)
+                    if not swap_transaction:
+                        _, elected_table = _get_supply_tables(r)
+                        # use clear() + extend() instead of op `=` to ensure `id(elected)` doesn't change
+                        elected.clear()
+                        elected.extend(get_courses(elected_table))
 
                 except RuntimeError as e:
                     ferr.critical(e)
@@ -846,20 +909,50 @@ def run_elective_loop():
                     # use this private function of 'hook.py' to dump the response from `get_SupplyCancel` or `get_supplement`
                     file = _dump_request(page_r)
                     ferr.critical("Dump response from 'get_SupplyCancel / get_supplement' to %s" % file)
-                    raise e
+                    if swap_dropped:
+                        submission_error = e
+                    else:
+                        raise e
 
                 except Exception as e:
                     if swap_dropped:
-                        append_swap_event(swap_transaction, "failed", swap_drop_course, course, e)
-                        _attempt_swap_rollback(elective, swap_drop_course, swap_transaction, course)
-                        _ignore_course(course, "Swap failed; manual review required")
-                    raise e  # don't increase error count here
+                        submission_error = e
+                        ferr.error(e)
+                        cout.warning("目标课程提交返回错误，正在刷新课表核验最终状态")
+                    else:
+                        raise e  # don't increase error count here
 
-                if swap_transaction and not election_succeeded:
-                    append_swap_event(swap_transaction, "failed", swap_drop_course, course, "目标课程未确认成功")
+                if swap_transaction:
+                    try:
+                        verified_elected, _ = _read_swap_snapshot(elective, "目标选课结果")
+                    except Exception as verification_error:
+                        append_swap_event(swap_transaction, "manual_review", swap_drop_course, course,
+                                          "目标提交后无法读取课表确认状态")
+                        _ignore_course(course, "Swap state uncertain; manual review required")
+                        cout.critical("目标提交后的课表状态无法确认")
+                        print("MANUAL_REVIEW_REQUIRED=目标提交后无法确认课表状态，请立即人工核对", flush=True)
+                        continue
+
+                    if course in verified_elected:
+                        if not election_succeeded:
+                            cout.info("虽然提交响应异常，但刷新课表已确认目标课程选中")
+                        append_swap_event(swap_transaction, "success", swap_drop_course, course,
+                                          "刷新课表后确认目标课程已选中")
+                        elected.clear()
+                        elected.extend(verified_elected)
+                        election_succeeded = True
+                        continue
+
+                    failure = submission_error or "刷新课表后未发现目标课程"
+                    append_swap_event(swap_transaction, "failed", swap_drop_course, course, failure)
                     if swap_dropped:
-                        _attempt_swap_rollback(elective, swap_drop_course, swap_transaction, course)
+                        rollback_result = _attempt_swap_rollback(
+                            elective, swap_drop_course, swap_transaction, course)
+                        if rollback_result == "target_confirmed":
+                            elected.append(course)
+                            continue
                         _ignore_course(course, "Swap failed; manual review required")
+                        print("MANUAL_REVIEW_REQUIRED=目标课程未选中，已停止继续换课；请核对原课程状态", flush=True)
 
         except UserInputException as e:
             cout.error(e)

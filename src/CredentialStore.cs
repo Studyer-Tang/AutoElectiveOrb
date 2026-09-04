@@ -10,7 +10,27 @@ namespace AutoElectiveOrb
 
         public static void Save(string studentId, string password)
         {
-            if (string.IsNullOrWhiteSpace(studentId) || string.IsNullOrEmpty(password)) return;
+            SaveCredential(Target("IAAA", studentId), studentId, password, "AutoElectiveOrb IAAA credential");
+        }
+
+        public static string Read(string studentId)
+        {
+            return ReadCredential(Target("IAAA", studentId));
+        }
+
+        public static void SaveTt(string username, string password)
+        {
+            SaveCredential(Target("TTShitu", username), username, password, "AutoElectiveOrb TTShitu credential");
+        }
+
+        public static string ReadTt(string username)
+        {
+            return ReadCredential(Target("TTShitu", username));
+        }
+
+        private static void SaveCredential(string target, string username, string password, string comment)
+        {
+            if (string.IsNullOrWhiteSpace(target) || string.IsNullOrWhiteSpace(username) || string.IsNullOrEmpty(password)) return;
             var bytes = System.Text.Encoding.Unicode.GetBytes(password);
             var blob = Marshal.AllocCoTaskMem(bytes.Length);
             try
@@ -19,14 +39,14 @@ namespace AutoElectiveOrb
                 var credential = new NativeCredential
                 {
                     Type = Generic,
-                    TargetName = Target(studentId),
+                    TargetName = target,
                     CredentialBlobSize = (uint)bytes.Length,
                     CredentialBlob = blob,
                     Persist = LocalMachine,
-                    UserName = studentId,
+                    UserName = username.Trim(),
                     AttributeCount = 0,
                     Attributes = IntPtr.Zero,
-                    Comment = "AutoElectiveOrb IAAA credential"
+                    Comment = comment
                 };
                 if (!CredWrite(ref credential, 0)) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
             }
@@ -37,11 +57,11 @@ namespace AutoElectiveOrb
             }
         }
 
-        public static string Read(string studentId)
+        private static string ReadCredential(string target)
         {
-            if (string.IsNullOrWhiteSpace(studentId)) return string.Empty;
+            if (string.IsNullOrWhiteSpace(target)) return string.Empty;
             IntPtr pointer;
-            if (!CredRead(Target(studentId), Generic, 0, out pointer)) return string.Empty;
+            if (!CredRead(target, Generic, 0, out pointer)) return string.Empty;
             try
             {
                 var credential = (NativeCredential)Marshal.PtrToStructure(pointer, typeof(NativeCredential));
@@ -51,7 +71,10 @@ namespace AutoElectiveOrb
             finally { CredFree(pointer); }
         }
 
-        private static string Target(string studentId) { return "AutoElectiveOrb:IAAA:" + studentId.Trim(); }
+        private static string Target(string kind, string account)
+        {
+            return string.IsNullOrWhiteSpace(account) ? string.Empty : "AutoElectiveOrb:" + kind + ":" + account.Trim();
+        }
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
         private struct NativeCredential

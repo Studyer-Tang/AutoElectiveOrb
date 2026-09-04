@@ -188,7 +188,7 @@ class AutoElectiveConfig(BaseConfig, metaclass=Singleton):
 
     @property
     def captcha_provider(self):
-        return self.get("captcha", "provider", fallback="local").strip().lower()
+        return self.get("captcha", "provider", fallback="ttshitu").strip().lower()
 
     # [mutex]
 
@@ -249,8 +249,8 @@ class AutoElectiveConfig(BaseConfig, metaclass=Singleton):
             raise UserInputException("login_loop_interval must be at least 1 second")
         if self.elective_client_max_life != -1 and self.elective_client_max_life < 60:
             raise UserInputException("elective_client_max_life must be -1 or at least 60 seconds")
-        if self.captcha_provider != "local":
-            raise UserInputException("captcha.provider must remain 'local'")
+        if self.captcha_provider != "ttshitu":
+            raise UserInputException("captcha.provider must be 'ttshitu'")
         courses = self.courses
         if not courses:
             raise UserInputException("At least one course must be configured")

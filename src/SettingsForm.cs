@@ -20,6 +20,9 @@ namespace AutoElectiveOrb
         private readonly ComboBox identity;
         private readonly CheckBox scheduledStart;
         private readonly DateTimePicker startAt;
+        private readonly TextBox ttUsername;
+        private readonly TextBox ttPassword;
+        private readonly CheckBox ttConsent;
         private readonly DataGridView courses;
         private readonly TextBox logs;
         private readonly Label status;
@@ -33,8 +36,8 @@ namespace AutoElectiveOrb
             this.backend = backend;
             this.lotteryWatcher = lotteryWatcher;
             Text = "AutoElective Orb · 本地选课助手";
-            ClientSize = new Size(700, 720);
-            MinimumSize = new Size(650, 680);
+            ClientSize = new Size(700, 800);
+            MinimumSize = new Size(650, 760);
             BackColor = Theme.Background;
             ForeColor = Theme.Text;
             StartPosition = FormStartPosition.CenterScreen;
@@ -44,7 +47,7 @@ namespace AutoElectiveOrb
             var title = new Label { Text = "本地选课助手", ForeColor = Theme.Text, Font = new Font("Microsoft YaHei UI", 17, FontStyle.Bold), AutoSize = true };
             title.Location = new Point(24, 18);
             Controls.Add(title);
-            var subtitle = new Label { Text = "小球常驻 · 本地识图 · 不使用第三方验证码服务", ForeColor = Theme.Secondary, AutoSize = true };
+            var subtitle = new Label { Text = "小球常驻 · TT 在线识图 · 五位验证码", ForeColor = Theme.Secondary, AutoSize = true };
             subtitle.Location = new Point(27, 52);
             Controls.Add(subtitle);
 
@@ -64,7 +67,7 @@ namespace AutoElectiveOrb
             help.Click += delegate { using (var window = new HelpForm()) window.ShowDialog(this); };
             Controls.Add(help);
 
-            var account = Card("账号、刷新与定时预热", 22, 86, 656, 170);
+            var account = Card("账号、刷新与 TT 识图", 22, 86, 656, 250);
             Controls.Add(account);
             AddLabel(account, "学号", 14, 39, 58);
             studentId = Input(account, 72, 36, 170);
@@ -100,14 +103,31 @@ namespace AutoElectiveOrb
             startAt = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "HH:mm:ss", ShowUpDown = true, BackColor = Theme.SurfaceHigh, ForeColor = Theme.Text };
             startAt.SetBounds(95, 109, 105, 28);
             account.Controls.Add(startAt);
-            var scheduleHint = new Label { Text = "先验证账号和本地 OCR，再倒计时；到点前绝不扫描或操作课程。", ForeColor = Theme.Cyan, AutoSize = true, Location = new Point(214, 115) };
+            var scheduleHint = new Label { Text = "先验证账号和 TT 配置，再倒计时；到点前绝不扫描或操作课程。", ForeColor = Theme.Cyan, AutoSize = true, Location = new Point(214, 115) };
             account.Controls.Add(scheduleHint);
             scheduledStart.CheckedChanged += delegate { startAt.Enabled = scheduledStart.Checked; };
-            var accountHint = new Label { Text = "密码只保存在 Windows 凭据管理器，不写入配置文件。", ForeColor = Theme.Secondary, AutoSize = true };
-            accountHint.Location = new Point(14, 143);
+
+            AddLabel(account, "TT 账号", 14, 151, 58);
+            ttUsername = Input(account, 72, 148, 170);
+            AddLabel(account, "TT 密码", 260, 151, 58);
+            ttPassword = Input(account, 322, 148, 160);
+            ttPassword.UseSystemPasswordChar = true;
+            var ttType = new Label { Text = "类型 1003 · 五位数英", ForeColor = Theme.Cyan, AutoSize = true, Location = new Point(500, 155) };
+            account.Controls.Add(ttType);
+            ttConsent = new CheckBox
+            {
+                Text = "我同意将验证码图片发送到 api.ttshitu.com 识别",
+                ForeColor = Color.FromArgb(253, 186, 116),
+                AutoSize = true,
+                BackColor = Color.Transparent,
+                Location = new Point(14, 185)
+            };
+            account.Controls.Add(ttConsent);
+            var accountHint = new Label { Text = "两个密码仅保存在 Windows 凭据管理器，不写入设置、引擎配置或日志。", ForeColor = Theme.Secondary, AutoSize = true };
+            accountHint.Location = new Point(14, 217);
             account.Controls.Add(accountHint);
 
-            var courseCard = Card("目标课程", 22, 268, 656, 218);
+            var courseCard = Card("目标课程", 22, 348, 656, 218);
             Controls.Add(courseCard);
             courses = new DataGridView
             {
@@ -168,7 +188,7 @@ namespace AutoElectiveOrb
             courseHint.Location = new Point(14, 164);
             courseCard.Controls.Add(courseHint);
 
-            var logCard = Card("运行记录", 22, 498, 656, 136);
+            var logCard = Card("运行记录", 22, 578, 656, 136);
             Controls.Add(logCard);
             logs = new TextBox { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, BackColor = Color.FromArgb(6, 10, 18), ForeColor = Theme.Secondary, BorderStyle = BorderStyle.None, Font = new Font("Consolas", 8.5f) };
             logs.SetBounds(14, 38, 628, 84);
@@ -179,19 +199,20 @@ namespace AutoElectiveOrb
             logCard.Controls.Add(history);
 
             var warning = new Label { Text = "提示：自动请求可能触发学校限流；本工具保留最低 4 秒刷新限制。", ForeColor = Color.FromArgb(253, 186, 116), AutoSize = true };
-            warning.Location = new Point(24, 646);
+            warning.Location = new Point(24, 726);
             Controls.Add(warning);
 
             var save = Theme.Button("保存设置", false);
-            save.SetBounds(430, 675, 112, 34);
+            save.SetBounds(430, 755, 112, 34);
             save.Click += delegate { SaveFromUi(true); };
             Controls.Add(save);
             startStop = Theme.Button("开始监控", true);
-            startStop.SetBounds(552, 675, 126, 34);
+            startStop.SetBounds(552, 755, 126, 34);
             startStop.Click += delegate { ToggleEngine(); };
             Controls.Add(startStop);
 
             studentId.Leave += delegate { if (password.TextLength == 0) password.Text = CredentialStore.Read(studentId.Text); };
+            ttUsername.Leave += delegate { if (ttPassword.TextLength == 0) ttPassword.Text = CredentialStore.ReadTt(ttUsername.Text); };
             FormClosing += delegate(object sender, FormClosingEventArgs args) { if (args.CloseReason == CloseReason.UserClosing) { args.Cancel = true; Hide(); } };
             backend.LineReceived += OnLine;
             backend.StateChanged += OnStateChanged;
@@ -221,13 +242,19 @@ namespace AutoElectiveOrb
                 var secret = password.Text;
                 if (string.IsNullOrEmpty(secret)) secret = CredentialStore.Read(settings.StudentId);
                 if (string.IsNullOrEmpty(secret)) throw new InvalidOperationException("请填写统一认证密码。");
+                if (!settings.TtCaptchaUploadConsent)
+                    throw new InvalidOperationException("请先勾选同意将验证码图片发送到 TT 识图。");
+                var ttSecret = ttPassword.Text;
+                if (string.IsNullOrEmpty(ttSecret)) ttSecret = CredentialStore.ReadTt(settings.TtUsername);
+                if (string.IsNullOrEmpty(settings.TtUsername) || string.IsNullOrEmpty(ttSecret))
+                    throw new InvalidOperationException("请填写 TT 识图账号和密码。");
                 var swapCount = settings.Courses.Count(course => course.IsSwap);
                 if (swapCount > 0)
                 {
                     var warning = string.Format("当前有 {0} 个全自动换课候选。发现余量后，程序会先退掉旧课再尝试新课，旧课可能无法恢复。\n\n确定开始吗？", swapCount);
                     if (MessageBox.Show(this, warning, "确认启动全自动换课", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes) return;
                 }
-                backend.Start(settings, secret, store);
+                backend.Start(settings, secret, ttSecret, store);
             }
             catch (Exception error)
             {
@@ -304,6 +331,8 @@ namespace AutoElectiveOrb
                 RefreshInterval = (double)interval.Value,
                 ScheduledStart = scheduledStart.Checked,
                 StartAt = startAt.Value.ToString("HH:mm:ss"),
+                TtUsername = ttUsername.Text.Trim(),
+                TtCaptchaUploadConsent = ttConsent.Checked,
                 OrbX = currentSettings.OrbX,
                 OrbY = currentSettings.OrbY
             };
@@ -344,8 +373,12 @@ namespace AutoElectiveOrb
             }
             settings.Courses = settings.Courses.OrderBy(course => course.Priority).ToList();
             if (settings.Courses.Count == 0) throw new InvalidOperationException("至少添加一门目标课程。");
+            if (settings.TtUsername.Length > 128 || settings.TtUsername.IndexOfAny(new[] { '\r', '\n' }) >= 0)
+                throw new InvalidOperationException("TT 识图账号格式无效。");
             store.Save(settings);
             if (saveCredential && password.TextLength > 0) CredentialStore.Save(id, password.Text);
+            if (saveCredential && ttPassword.TextLength > 0 && settings.TtUsername.Length > 0)
+                CredentialStore.SaveTt(settings.TtUsername, ttPassword.Text);
             return settings;
         }
 
@@ -361,6 +394,9 @@ namespace AutoElectiveOrb
             identity.SelectedIndex = settings.DualDegree && settings.Identity == "bfx" ? 1 : 0;
             identity.Enabled = settings.DualDegree;
             password.Text = CredentialStore.Read(settings.StudentId);
+            ttUsername.Text = settings.TtUsername ?? string.Empty;
+            ttPassword.Text = CredentialStore.ReadTt(ttUsername.Text);
+            ttConsent.Checked = settings.TtCaptchaUploadConsent;
             courses.Rows.Clear();
             foreach (var course in settings.Courses) AddCourseRow(course);
         }
@@ -487,7 +523,7 @@ namespace AutoElectiveOrb
 
         private void UpdateState(EngineState state)
         {
-            if (state == EngineState.Starting) { status.Text = "● 正在预热本地识图"; status.ForeColor = Theme.Blue; startStop.Text = "停止"; }
+            if (state == EngineState.Starting) { status.Text = "● 正在检查 TT 识图"; status.ForeColor = Theme.Blue; startStop.Text = "停止"; }
             else if (state == EngineState.Waiting) { UpdateCountdown(); status.ForeColor = Theme.Blue; startStop.Text = "取消倒计时"; }
             else if (state == EngineState.Running) { status.Text = "● 正在监控"; status.ForeColor = Theme.Green; startStop.Text = "停止监控"; }
             else if (state == EngineState.Stopping) { status.Text = "● 正在停止"; status.ForeColor = Theme.Secondary; startStop.Text = "停止中"; }

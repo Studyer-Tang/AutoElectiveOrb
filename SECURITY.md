@@ -2,13 +2,14 @@
 
 ## Local data
 
-- The unified-authentication password is stored through Windows Credential Manager.
-- The password is passed only to the local Python child process through an environment variable and is never written to repository files, JSON settings, INI configuration, or logs.
-- Captcha recognition is performed locally with `ddddocr`; captcha images are not uploaded to third-party recognition services.
+- The unified-authentication password and TTShitu password are stored through Windows Credential Manager. The non-secret TTShitu username is stored in local UI settings.
+- Credentials are passed only to the local Python child process through environment variables and are never written to repository files, JSON settings, INI configuration, or logs.
+- After explicit opt-in in the settings window, captcha images and TTShitu credentials are sent over HTTPS to `api.ttshitu.com`. School credentials, cookies, tokens, course data, and request headers are never included in that request.
+- Captcha images and recognized captcha text are not persisted locally. TTShitu is an independent third party; review its privacy policy, terms, retention practices, and pricing before use.
 - Runtime settings, logs, caches, and swap history are stored under `%LOCALAPPDATA%\AutoElectiveOrb` and are excluded from Git.
 - Request and response bodies are not dumped unless a developer explicitly sets `AUTOELECTIVE_ALLOW_SENSITIVE_DUMPS=1`.
 
-Before reporting a bug, remove student IDs, cookies, tokens, course selections, and other personal information from screenshots and logs.
+Before reporting a bug, remove student IDs, TTShitu account details, cookies, tokens, course selections, and other personal information from screenshots and logs.
 
 ## Reporting a vulnerability
 

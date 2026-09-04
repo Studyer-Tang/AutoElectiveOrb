@@ -28,6 +28,7 @@ namespace AutoElectiveOrb
                     if (value != null)
                     {
                         if (value.Courses == null) value.Courses = new System.Collections.Generic.List<CourseSetting>();
+                        if (value.TtUsername == null) value.TtUsername = string.Empty;
                         return value;
                     }
                 }
@@ -68,7 +69,7 @@ namespace AutoElectiveOrb
             builder.AppendLine("debug_dump_request = false");
             builder.AppendLine();
             builder.AppendLine("[captcha]");
-            builder.AppendLine("provider = local");
+            builder.AppendLine("provider = ttshitu");
             builder.AppendLine();
             builder.AppendLine("[safety]");
             var hasSwap = settings.Courses.Exists(course => course.IsSwap);

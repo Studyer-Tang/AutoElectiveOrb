@@ -25,10 +25,14 @@ class SwapHistoryTests(unittest.TestCase):
                 self.assertEqual([transaction], swap_history.find_incomplete_transactions())
                 swap_history.append_event(transaction, "rollback_success", drop, target)
                 self.assertEqual([], swap_history.find_incomplete_transactions())
+                uncertain = swap_history.start_transaction(drop, target)
+                swap_history.append_event(uncertain, "manual_review", drop, target, "无法确认最终课表")
+                self.assertEqual([uncertain], swap_history.find_incomplete_transactions())
                 with open(swap_history.TEXT_PATH, encoding="utf-8") as handle:
                     text = handle.read()
                 self.assertIn("已确认退课", text)
                 self.assertIn("回滚成功", text)
+                self.assertIn("状态待人工核对", text)
             finally:
                 swap_history.JSON_PATH, swap_history.TEXT_PATH = old_json, old_text
 

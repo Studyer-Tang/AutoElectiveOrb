@@ -170,8 +170,8 @@ def check_elective_tips(r, **kwargs):
         elif tips == "对不起，超时操作，请重新登录。":
             raise OperationTimeoutError(response=r)
 
-        elif tips == "选课操作失败，请稍后再试。":
-            raise ElectionFailedError(response=r)
+        elif tips in ("选课操作失败，请稍后再试。", "补选课程失败。"):
+            raise ElectionFailedError(response=r, msg=tips)
 
         elif tips == "您本学期所选课程的总学分已经超过规定学分上限。":
             raise CreditsLimitedError(response=r)

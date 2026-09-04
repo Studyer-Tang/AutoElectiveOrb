@@ -31,7 +31,7 @@ namespace AutoElectiveOrb
             get { lock (gate) return recentLines.ToArray(); }
         }
 
-        public void Start(AppSettings settings, string password, SettingsStore store)
+        public void Start(AppSettings settings, string password, string ttPassword, SettingsStore store)
         {
             lock (gate)
             {
@@ -58,6 +58,8 @@ namespace AutoElectiveOrb
                     StandardErrorEncoding = System.Text.Encoding.UTF8
                 };
                 start.EnvironmentVariables["AUTOELECTIVE_IAAA_PASSWORD"] = password;
+                start.EnvironmentVariables["AUTOELECTIVE_TT_USERNAME"] = settings.TtUsername;
+                start.EnvironmentVariables["AUTOELECTIVE_TT_PASSWORD"] = ttPassword;
                 start.EnvironmentVariables["AUTOELECTIVE_DATA_DIR"] = store.DataDirectory;
                 start.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
                 start.EnvironmentVariables["PYTHONUNBUFFERED"] = "1";
@@ -71,6 +73,8 @@ namespace AutoElectiveOrb
                 {
                     process.Start();
                     start.EnvironmentVariables["AUTOELECTIVE_IAAA_PASSWORD"] = string.Empty;
+                    start.EnvironmentVariables["AUTOELECTIVE_TT_USERNAME"] = string.Empty;
+                    start.EnvironmentVariables["AUTOELECTIVE_TT_PASSWORD"] = string.Empty;
                     process.BeginOutputReadLine();
                     process.BeginErrorReadLine();
                 }
@@ -105,10 +109,10 @@ namespace AutoElectiveOrb
                 recentLines.Enqueue((lineIsError ? "[错误] " : string.Empty) + cleaned);
                 while (recentLines.Count > 400) recentLines.Dequeue();
             }
-            if (cleaned.IndexOf("LOCAL_OCR_READY", StringComparison.OrdinalIgnoreCase) >= 0)
+            if (cleaned.IndexOf("TT_OCR_READY", StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 if (!scheduledStart) SetState(EngineState.Running);
-                RaiseNotification("本地识图已就绪", "模型已常驻内存，后续验证码无需联网识别。");
+                RaiseNotification("TT 识图配置已就绪", "验证码出现时将通过 HTTPS 发送给 TT 识图。");
             }
             else if (cleaned.IndexOf("SCHEDULE_WAITING=", StringComparison.OrdinalIgnoreCase) >= 0)
             {
@@ -127,6 +131,10 @@ namespace AutoElectiveOrb
             else if (cleaned.IndexOf("SWAP_RECOVERY_WARNING=", StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 RaiseNotification("发现未完成的换课记录", "上次换课可能在中途结束，请立即打开换课历史并核对教务系统。");
+            }
+            else if (cleaned.IndexOf("MANUAL_REVIEW_REQUIRED=", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                RaiseNotification("换课需要人工核对", "目标课程未确认成功；程序已停止继续操作，请立即核对学校课表和换课历史。");
             }
             else if (cleaned.IndexOf("ELECTED", StringComparison.OrdinalIgnoreCase) >= 0)
                 RaiseNotification("补选成功", cleaned);
@@ -192,17 +200,18 @@ namespace AutoElectiveOrb
 
         private static string Friendly(string line)
         {
-            return line.Replace("LOCAL_OCR_READY", "本地 OCR 已就绪")
+            return line.Replace("TT_OCR_READY", "TT 识图配置已就绪")
                 .Replace("PRESTART_LOGIN_READY", "统一认证登录检查通过")
                 .Replace("SCHEDULE_WAITING=", "安全等待至 ")
                 .Replace("SCHEDULE_STARTED", "倒计时结束，开始监控")
                 .Replace("SWAP_RECOVERY_WARNING=", "警告：发现状态不确定的换课记录 ")
+                .Replace("MANUAL_REVIEW_REQUIRED=", "需要人工核对：")
                 .Replace("No course available", "当前没有课程余量")
                 .Replace("Get available courses", "正在检查课程余量")
                 .Replace("Try to login IAAA", "正在登录统一认证")
                 .Replace("Validation passed", "验证码校验通过")
-                .Replace("Recognition result", "本地识图结果")
-                .Replace("No tasks", "所有任务已完成");
+                .Replace("Recognition result", "TT 识图结果")
+                .Replace("No actionable tasks remain", "当前没有可继续执行的任务");
         }
 
         public void Dispose() { Stop(); }

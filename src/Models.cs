@@ -10,6 +10,8 @@ namespace AutoElectiveOrb
         public double RefreshInterval { get; set; }
         public bool ScheduledStart { get; set; }
         public string StartAt { get; set; }
+        public string TtUsername { get; set; }
+        public bool TtCaptchaUploadConsent { get; set; }
         public int OrbX { get; set; }
         public int OrbY { get; set; }
         public List<CourseSetting> Courses { get; set; }
@@ -20,6 +22,7 @@ namespace AutoElectiveOrb
             Identity = "bzx";
             RefreshInterval = 6;
             StartAt = "08:00:00";
+            TtUsername = string.Empty;
             OrbX = -1;
             OrbY = -1;
             Courses = new List<CourseSetting>();

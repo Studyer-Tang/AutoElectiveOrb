@@ -72,13 +72,13 @@ def run():
     setup_default_environ(options, environ)
 
     # Preflight before waiting or creating worker threads.
-    from .captcha import LocalDdddOcrRecognizer
+    from .captcha import TTShituRecognizer
     from .config import AutoElectiveConfig
     config = AutoElectiveConfig()
     config.validate()
     _ = config.iaaa_password
-    environ.local_recognizer = LocalDdddOcrRecognizer()
-    print('LOCAL_OCR_READY', flush=True)
+    environ.captcha_recognizer = TTShituRecognizer()
+    print('TT_OCR_READY', flush=True)
     from .swap_history import find_incomplete_transactions
     incomplete = find_incomplete_transactions()
     if incomplete:
