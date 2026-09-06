@@ -1,6 +1,4 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
@@ -10,7 +8,6 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
-using System.Web.Script.Serialization;
 using System.Windows.Forms;
 
 namespace AutoElectiveOrbUpdater
@@ -28,7 +25,8 @@ namespace AutoElectiveOrbUpdater
 
     internal sealed class UpdateForm : Form
     {
-        private const string ApiUrl = "https://api.github.com/repos/Studyer-Tang/AutoElectiveOrb/releases/latest";
+        private const string LatestReleaseUrl = "https://github.com/Studyer-Tang/AutoElectiveOrb/releases/latest";
+        private const string LatestDownloadUrl = "https://github.com/Studyer-Tang/AutoElectiveOrb/releases/latest/download/";
         private const string PackageName = "AutoElectiveOrb-windows-x64.zip";
         private readonly Label status;
         private readonly ProgressBar progress;
@@ -40,7 +38,8 @@ namespace AutoElectiveOrbUpdater
         {
             Text = "AutoElective Orb 更新器";
             ClientSize = new Size(520, 250);
-            MinimumSize = MaximumSize = Size;
+            FormBorderStyle = FormBorderStyle.FixedSingle;
+            MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
             BackColor = Color.FromArgb(12, 18, 30);
             ForeColor = Color.FromArgb(230, 237, 248);
@@ -80,12 +79,7 @@ namespace AutoElectiveOrbUpdater
                     throw new InvalidOperationException("检测到这是源码仓库。为避免覆盖开发文件，请使用 git pull 更新源码。完整发布包才能使用一键更新。");
 
                 SetStatus("正在查询最新版本…");
-                ReleaseInfo release;
-                using (var client = CreateClient())
-                {
-                    var json = await client.DownloadStringTaskAsync(ApiUrl);
-                    release = ParseRelease(json);
-                }
+                var release = await QueryLatestRelease();
 
                 var local = ReadLocalVersion(install);
                 if (CompareVersions(local, release.Version) >= 0)
@@ -164,27 +158,44 @@ namespace AutoElectiveOrbUpdater
         {
             var client = new WebClient { Encoding = Encoding.UTF8 };
             client.Headers[HttpRequestHeader.UserAgent] = "AutoElectiveOrb-Updater";
-            client.Headers[HttpRequestHeader.Accept] = "application/vnd.github+json";
             return client;
         }
 
-        private static ReleaseInfo ParseRelease(string json)
+        private static async Task<ReleaseInfo> QueryLatestRelease()
         {
-            var root = new JavaScriptSerializer().DeserializeObject(json) as Dictionary<string, object>;
-            if (root == null || !root.ContainsKey("tag_name") || !root.ContainsKey("assets")) throw new InvalidDataException("GitHub 返回的版本信息无效。");
-            var version = Convert.ToString(root["tag_name"]).Trim().TrimStart('v', 'V');
-            string package = null, checksum = null;
-            foreach (var item in (IEnumerable)root["assets"])
+            var request = (HttpWebRequest)WebRequest.Create(LatestReleaseUrl);
+            request.Method = "HEAD";
+            request.AllowAutoRedirect = false;
+            request.UserAgent = "AutoElectiveOrb-Updater";
+            request.Accept = "text/html";
+            request.Timeout = 15000;
+            request.ReadWriteTimeout = 15000;
+            using (var response = (HttpWebResponse)await request.GetResponseAsync())
             {
-                var asset = item as Dictionary<string, object>;
-                if (asset == null) continue;
-                var name = Convert.ToString(asset["name"]);
-                var url = Convert.ToString(asset["browser_download_url"]);
-                if (name == PackageName) package = url;
-                if (name == PackageName + ".sha256") checksum = url;
+                var location = response.Headers[HttpResponseHeader.Location];
+                if (string.IsNullOrWhiteSpace(location))
+                    throw new InvalidDataException("GitHub 未返回最新版跳转地址，请稍后再试。");
+
+                var releaseUri = new Uri(new Uri(LatestReleaseUrl), location);
+                var expectedPrefix = "/Studyer-Tang/AutoElectiveOrb/releases/tag/";
+                if (!string.Equals(releaseUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(releaseUri.Host, "github.com", StringComparison.OrdinalIgnoreCase)
+                    || !releaseUri.AbsolutePath.StartsWith(expectedPrefix, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("GitHub 返回了无法识别的最新版地址。");
+
+                var tag = Uri.UnescapeDataString(releaseUri.AbsolutePath.Substring(expectedPrefix.Length));
+                var version = tag.Trim().TrimStart('v', 'V');
+                Version parsed;
+                if (!Version.TryParse(version.Split('-')[0], out parsed))
+                    throw new InvalidDataException("GitHub 返回的版本号无效。");
+
+                return new ReleaseInfo
+                {
+                    Version = version,
+                    PackageUrl = LatestDownloadUrl + PackageName,
+                    ChecksumUrl = LatestDownloadUrl + PackageName + ".sha256"
+                };
             }
-            if (package == null || checksum == null) throw new InvalidDataException("最新版缺少程序包或 SHA-256 校验文件，请稍后再试。");
-            return new ReleaseInfo { Version = version, PackageUrl = package, ChecksumUrl = checksum };
         }
 
         private static string ReadLocalVersion(string install)

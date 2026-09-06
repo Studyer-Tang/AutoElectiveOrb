@@ -37,7 +37,10 @@ namespace AutoElectiveOrb
             this.lotteryWatcher = lotteryWatcher;
             Text = "AutoElective Orb · 本地选课助手";
             ClientSize = new Size(700, 800);
-            MinimumSize = new Size(650, 760);
+            FormBorderStyle = FormBorderStyle.FixedSingle;
+            MaximizeBox = false;
+            AutoScroll = true;
+            AutoScrollMinSize = new Size(0, 800);
             BackColor = Theme.Background;
             ForeColor = Theme.Text;
             StartPosition = FormStartPosition.CenterScreen;
@@ -222,13 +225,28 @@ namespace AutoElectiveOrb
             countdownTimer = new Timer { Interval = 1000 };
             countdownTimer.Tick += delegate { if (backend.State == EngineState.Waiting) UpdateCountdown(); };
             countdownTimer.Start();
+            Shown += delegate { FitToWorkingArea(); };
             FormClosed += delegate { countdownTimer.Stop(); countdownTimer.Dispose(); };
+        }
+
+        private void FitToWorkingArea()
+        {
+            var work = Screen.FromControl(this).WorkingArea;
+            const int margin = 16;
+            var maxWidth = Math.Max(480, work.Width - margin * 2);
+            var maxHeight = Math.Max(560, work.Height - margin * 2);
+            if (Width > maxWidth || Height > maxHeight)
+                Size = new Size(Math.Min(Width, maxWidth), Math.Min(Height, maxHeight));
+
+            Left = work.Left + Math.Max(margin, (work.Width - Width) / 2);
+            Top = work.Top + Math.Max(margin, (work.Height - Height) / 2);
         }
 
         public void ShowPanel()
         {
             if (!Visible) Show();
             WindowState = FormWindowState.Normal;
+            FitToWorkingArea();
             Activate();
         }
 
