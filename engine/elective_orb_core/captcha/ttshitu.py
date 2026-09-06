@@ -16,12 +16,12 @@ from ..secrets import get_ttshitu_credentials
 from .captcha import Captcha
 
 
-_CODE_PATTERN = re.compile(r"[A-Za-z0-9]{5}")
+_CODE_PATTERN = re.compile(r"[A-Za-z0-9]{4,5}")
 
 
 class TTShituRecognizer(object):
     ENDPOINT = "https://api.ttshitu.com/base64"
-    TYPE_ID = 1003  # TTShitu: five mixed ASCII letters and digits
+    TYPE_ID = 1003  # TTShitu: mixed ASCII letters and digits
     MAX_IMAGE_BYTES = 3 * 1024 * 1024
     MAX_IMAGE_PIXELS = 4 * 1024 * 1024
 
@@ -69,7 +69,7 @@ class TTShituRecognizer(object):
         if _CODE_PATTERN.fullmatch(code) is None:
             detail = "缺少结果字段" if not isinstance(result, str) else "实际长度 %d" % len(code)
             raise RecognizerError(
-                msg="TT 识图返回格式不符（预期五位 ASCII 字母数字，%s）" % detail
+                msg="TT 识图返回格式不符（预期四至五位 ASCII 字母数字，%s）" % detail
             )
         return Captcha(code, engine="ttshitu")
 

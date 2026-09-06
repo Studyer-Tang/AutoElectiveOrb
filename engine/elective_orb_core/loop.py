@@ -174,7 +174,8 @@ def _validate_captcha(elective):
             _add_error(e)
             environ.stop_event.wait(min(attempt, 3))
             continue
-        cout.info("Recognition result: engine=%s format=5-char-alnum" % (captcha.engine or "unknown"))
+        cout.info("Recognition result: engine=%s format=%d-char-alnum" % (
+            captcha.engine or "unknown", len(captcha.code)))
         r = elective.get_Validate(username, captcha.code)
         try:
             result = r.json()["valid"]

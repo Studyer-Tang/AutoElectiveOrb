@@ -62,7 +62,7 @@ namespace AutoElectiveOrb
             content.Controls.Add(Section("08  悬浮球与托盘",
                 "单击悬浮球打开设置；拖动可贴边；中键快速开始或停止；Ctrl + Alt + E 随时唤出；关闭设置窗口后仍会驻留托盘。"));
             content.Controls.Add(Section("09  TT 识图与安全",
-                "验证码经 HTTPS 发往 api.ttshitu.com，使用类型 1003 识别五位数英混合字符；动态图会取最后一帧并在内存中转为 JPEG。学校密码、Cookie 和课程数据不会发送。每次识别可能计费，换课会在退课前和目标课提交前分别校验。"));
+                "验证码经 HTTPS 发往 api.ttshitu.com，使用类型 1003 识别四至五位数英混合字符；动态图会取最后一帧并在内存中转为 JPEG。学校密码、Cookie 和课程数据不会发送。每次识别可能计费，换课会在退课前和目标课提交前分别校验。"));
             content.Controls.Add(Section("10  预选抽签结果",
                 "点击“抽签结果”只读访问本人账号的官方结果页，逐门显示“已选中、未选中、抽签中”等原始状态；只有“已选中”才算抽中。"));
             content.Controls.Add(Section("11  抽签结果哨兵",

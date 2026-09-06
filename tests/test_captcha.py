@@ -62,24 +62,26 @@ class CaptchaRecognizerTests(unittest.TestCase):
     def setUp(self):
         self.image = self._image_bytes()
 
-    def test_recognizes_one_five_character_ascii_result(self):
-        session = FakeSession(FakeResponse({
-            "success": True,
-            "code": "0",
-            "data": {"result": " A8b2Z ", "id": "request-id"},
-        }))
-        captcha = TTShituRecognizer("test-user", "test-password", session).recognize(self.image)
-        self.assertEqual(captcha.code, "A8b2Z")
-        self.assertIsNone(captcha.confidence)
-        self.assertEqual(captcha.engine, "ttshitu")
-        url, options = session.calls[0]
-        self.assertEqual(url, "https://api.ttshitu.com/base64")
-        self.assertEqual(options["json"]["typeid"], 1003)
-        uploaded = base64.b64decode(options["json"]["image"])
-        with Image.open(BytesIO(uploaded)) as normalized:
-            self.assertEqual(normalized.format, "JPEG")
-            self.assertEqual(normalized.mode, "RGB")
-        self.assertEqual(options["timeout"], (5, 60))
+    def test_recognizes_four_and_five_character_ascii_results(self):
+        for recognized in ("A8b2", "A8b2Z"):
+            with self.subTest(recognized=recognized):
+                session = FakeSession(FakeResponse({
+                    "success": True,
+                    "code": "0",
+                    "data": {"result": " %s " % recognized, "id": "request-id"},
+                }))
+                captcha = TTShituRecognizer("test-user", "test-password", session).recognize(self.image)
+                self.assertEqual(captcha.code, recognized)
+                self.assertIsNone(captcha.confidence)
+                self.assertEqual(captcha.engine, "ttshitu")
+                url, options = session.calls[0]
+                self.assertEqual(url, "https://api.ttshitu.com/base64")
+                self.assertEqual(options["json"]["typeid"], 1003)
+                uploaded = base64.b64decode(options["json"]["image"])
+                with Image.open(BytesIO(uploaded)) as normalized:
+                    self.assertEqual(normalized.format, "JPEG")
+                    self.assertEqual(normalized.mode, "RGB")
+                self.assertEqual(options["timeout"], (5, 60))
 
     def test_uses_last_frame_of_animated_captcha(self):
         response = FakeResponse({"success": True, "data": {"result": "AB12Z"}})
@@ -91,7 +93,7 @@ class CaptchaRecognizerTests(unittest.TestCase):
         self.assertGreater(blue, red)
 
     def test_rejects_non_ascii_and_wrong_length_results(self):
-        for text in ("验证码测试", "ABCD", "ABCDEF", "A-123"):
+        for text in ("验证码测试", "ABC", "ABCDEF", "A-123"):
             with self.subTest(text=text), self.assertRaises(RecognizerError):
                 response = FakeResponse({"success": True, "data": {"result": text}})
                 TTShituRecognizer("user", "secret", FakeSession(response)).recognize(self.image)

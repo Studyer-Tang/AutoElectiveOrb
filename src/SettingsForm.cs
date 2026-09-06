@@ -47,7 +47,7 @@ namespace AutoElectiveOrb
             var title = new Label { Text = "本地选课助手", ForeColor = Theme.Text, Font = new Font("Microsoft YaHei UI", 17, FontStyle.Bold), AutoSize = true };
             title.Location = new Point(24, 18);
             Controls.Add(title);
-            var subtitle = new Label { Text = "小球常驻 · TT 在线识图 · 五位验证码", ForeColor = Theme.Secondary, AutoSize = true };
+            var subtitle = new Label { Text = "小球常驻 · TT 在线识图 · 四至五位验证码", ForeColor = Theme.Secondary, AutoSize = true };
             subtitle.Location = new Point(27, 52);
             Controls.Add(subtitle);
 
@@ -112,7 +112,7 @@ namespace AutoElectiveOrb
             AddLabel(account, "TT 密码", 260, 151, 58);
             ttPassword = Input(account, 322, 148, 160);
             ttPassword.UseSystemPasswordChar = true;
-            var ttType = new Label { Text = "类型 1003 · 五位数英", ForeColor = Theme.Cyan, AutoSize = true, Location = new Point(500, 155) };
+            var ttType = new Label { Text = "类型 1003 · 四至五位数英", ForeColor = Theme.Cyan, AutoSize = true, Location = new Point(500, 155) };
             account.Controls.Add(ttType);
             ttConsent = new CheckBox
             {
