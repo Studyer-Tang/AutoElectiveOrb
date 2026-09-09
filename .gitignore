@@ -5,6 +5,8 @@ settings.json
 *.jsonl
 data/
 cache/
+captcha-collection/
+collect-captcha.enabled
 
 # Python
 __pycache__/
@@ -14,6 +16,9 @@ runtime/
 
 # Build and release output
 AutoElectiveOrb.exe
+AutoElectiveOrb-collection.exe
+AutoElectiveOrb-batch.exe
+.codex_tmp_build/
 UninstallAutoElectiveOrb.exe
 UpdateAutoElectiveOrb.exe
 UpdateAutoElectiveOrb.exe

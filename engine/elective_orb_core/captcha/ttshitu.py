@@ -14,6 +14,7 @@ from PIL import Image, UnidentifiedImageError
 from ..exceptions import RecognizerError
 from ..secrets import get_ttshitu_credentials
 from .captcha import Captcha
+from .collection import collect_existing_image
 
 
 _CODE_PATTERN = re.compile(r"[A-Za-z0-9]{4,5}")
@@ -46,6 +47,7 @@ class TTShituRecognizer(object):
             "typeid": self.TYPE_ID,
             "image": self._encode_image(raw),
         }
+        collect_existing_image(raw, payload["image"])
         try:
             response = self._session.post(
                 self.ENDPOINT,

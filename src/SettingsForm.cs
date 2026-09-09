@@ -29,6 +29,7 @@ namespace AutoElectiveOrb
         private readonly Button startStop;
         private readonly Timer countdownTimer;
         private LotteryResultsForm lotteryResultsForm;
+        private bool collectionWindowOpen;
 
         public SettingsForm(SettingsStore store, BackendProcess backend, LotteryWatchService lotteryWatcher)
         {
@@ -126,6 +127,15 @@ namespace AutoElectiveOrb
                 Location = new Point(14, 185)
             };
             account.Controls.Add(ttConsent);
+            var collectCaptcha = Theme.Button("收集验证码", false);
+            collectCaptcha.SetBounds(490, 180, 145, 30);
+            collectCaptcha.Click += delegate {
+                collectionWindowOpen = true;
+                try {
+                    using (var window = new CaptchaCollectionForm(store.DataDirectory, CreateCollectionProcess)) window.ShowDialog(this);
+                } finally { collectionWindowOpen = false; }
+            };
+            account.Controls.Add(collectCaptcha);
             var accountHint = new Label { Text = "两个密码仅保存在 Windows 凭据管理器，不写入设置、引擎配置或日志。", ForeColor = Theme.Secondary, AutoSize = true };
             accountHint.Location = new Point(14, 217);
             account.Controls.Add(accountHint);
@@ -252,6 +262,10 @@ namespace AutoElectiveOrb
 
         public void ToggleEngine()
         {
+            if (collectionWindowOpen) {
+                MessageBox.Show(this, "请先关闭验证码采集窗口，再启停选课监控。", "会话保护");
+                return;
+            }
             if (backend.IsRunning) { backend.Stop(); return; }
             try
             {
@@ -282,6 +296,7 @@ namespace AutoElectiveOrb
 
         public void ShowLotteryResults()
         {
+            if (collectionWindowOpen) return;
             if (lotteryResultsForm != null && !lotteryResultsForm.IsDisposed)
             {
                 if (!lotteryResultsForm.Visible) lotteryResultsForm.Show();
@@ -319,6 +334,37 @@ namespace AutoElectiveOrb
             lotteryResultsForm = new LotteryResultsForm(snapshot, secret, store, lotteryWatcher);
             lotteryResultsForm.FormClosed += delegate { lotteryResultsForm = null; };
             lotteryResultsForm.Show();
+        }
+
+        private ProcessStartInfo CreateCollectionProcess(int count, int seconds)
+        {
+            if (backend.IsRunning || lotteryWatcher.IsRunning || (lotteryResultsForm != null && !lotteryResultsForm.IsDisposed))
+                throw new InvalidOperationException("请先停止选课监控、抽签监控并关闭抽签结果窗口，再开始批量采集。");
+            var id = studentId.Text.Trim();
+            if (!Regex.IsMatch(id, "^[A-Za-z0-9_-]{1,64}$")) throw new InvalidOperationException("请先填写正确的学号。");
+            var secret = password.TextLength > 0 ? password.Text : CredentialStore.Read(id);
+            if (string.IsNullOrEmpty(secret)) throw new InvalidOperationException("请先填写统一认证密码。");
+            var snapshot = new AppSettings {
+                StudentId = id, DualDegree = dualDegree.Checked,
+                Identity = dualDegree.Checked && identity.SelectedIndex == 1 ? "bfx" : "bzx",
+                RefreshInterval = (double)interval.Value
+            };
+            var config = store.WriteEngineConfig(snapshot);
+            var engine = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "engine");
+            var script = Path.Combine(engine, "collect_captchas.py");
+            if (!File.Exists(script)) throw new FileNotFoundException("缺少批量采集模块。");
+            var start = new ProcessStartInfo {
+                FileName = BackendProcess.ResolvePython(),
+                Arguments = "-u \"" + script + "\" --config \"" + config + "\" --count " + count + " --interval " + seconds,
+                WorkingDirectory = engine, UseShellExecute = false, CreateNoWindow = true,
+                RedirectStandardOutput = true, RedirectStandardError = true,
+                StandardOutputEncoding = System.Text.Encoding.UTF8,
+                StandardErrorEncoding = System.Text.Encoding.UTF8
+            };
+            start.EnvironmentVariables["AUTOELECTIVE_IAAA_PASSWORD"] = secret;
+            start.EnvironmentVariables["AUTOELECTIVE_DATA_DIR"] = store.DataDirectory;
+            start.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
+            return start;
         }
 
         private void DeleteSelectedCourses()
