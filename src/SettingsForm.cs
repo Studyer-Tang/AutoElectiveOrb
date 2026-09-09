@@ -29,7 +29,8 @@ namespace AutoElectiveOrb
         private readonly Button startStop;
         private readonly Timer countdownTimer;
         private LotteryResultsForm lotteryResultsForm;
-        private bool collectionWindowOpen;
+        private CaptchaCollectionForm collectionForm;
+        private bool coursePickerOpen;
 
         public SettingsForm(SettingsStore store, BackendProcess backend, LotteryWatchService lotteryWatcher)
         {
@@ -130,10 +131,13 @@ namespace AutoElectiveOrb
             var collectCaptcha = Theme.Button("收集验证码", false);
             collectCaptcha.SetBounds(490, 180, 145, 30);
             collectCaptcha.Click += delegate {
-                collectionWindowOpen = true;
-                try {
-                    using (var window = new CaptchaCollectionForm(store.DataDirectory, CreateCollectionProcess)) window.ShowDialog(this);
-                } finally { collectionWindowOpen = false; }
+                if (collectionForm == null || collectionForm.IsDisposed) {
+                    collectionForm = new CaptchaCollectionForm(store.DataDirectory, CreateCollectionProcess);
+                    collectionForm.FormClosed += delegate { collectionForm = null; };
+                    collectionForm.Show();
+                }
+                collectionForm.WindowState = FormWindowState.Normal;
+                collectionForm.Activate();
             };
             account.Controls.Add(collectCaptcha);
             var accountHint = new Label { Text = "两个密码仅保存在 Windows 凭据管理器，不写入设置、引擎配置或日志。", ForeColor = Theme.Secondary, AutoSize = true };
@@ -236,7 +240,11 @@ namespace AutoElectiveOrb
             countdownTimer.Tick += delegate { if (backend.State == EngineState.Waiting) UpdateCountdown(); };
             countdownTimer.Start();
             Shown += delegate { FitToWorkingArea(); };
-            FormClosed += delegate { countdownTimer.Stop(); countdownTimer.Dispose(); };
+            FormClosed += delegate {
+                countdownTimer.Stop(); countdownTimer.Dispose();
+                if (collectionForm != null) collectionForm.Close();
+            };
+            Disposed += delegate { if (collectionForm != null) collectionForm.Close(); };
         }
 
         private void FitToWorkingArea()
@@ -262,8 +270,8 @@ namespace AutoElectiveOrb
 
         public void ToggleEngine()
         {
-            if (collectionWindowOpen) {
-                MessageBox.Show(this, "请先关闭验证码采集窗口，再启停选课监控。", "会话保护");
+            if (collectionForm != null && collectionForm.IsBatchRunning) {
+                MessageBox.Show(this, "请先停止验证码批量采集，再启停选课监控。", "会话保护");
                 return;
             }
             if (backend.IsRunning) { backend.Stop(); return; }
@@ -296,7 +304,10 @@ namespace AutoElectiveOrb
 
         public void ShowLotteryResults()
         {
-            if (collectionWindowOpen) return;
+            if (collectionForm != null && collectionForm.IsBatchRunning) {
+                MessageBox.Show(this, "请先停止验证码批量采集。", "会话保护");
+                return;
+            }
             if (lotteryResultsForm != null && !lotteryResultsForm.IsDisposed)
             {
                 if (!lotteryResultsForm.Visible) lotteryResultsForm.Show();
@@ -338,7 +349,7 @@ namespace AutoElectiveOrb
 
         private ProcessStartInfo CreateCollectionProcess(int count, int seconds)
         {
-            if (backend.IsRunning || lotteryWatcher.IsRunning || (lotteryResultsForm != null && !lotteryResultsForm.IsDisposed))
+            if (coursePickerOpen || backend.IsRunning || lotteryWatcher.IsRunning || (lotteryResultsForm != null && !lotteryResultsForm.IsDisposed))
                 throw new InvalidOperationException("请先停止选课监控、抽签监控并关闭抽签结果窗口，再开始批量采集。");
             var id = studentId.Text.Trim();
             if (!Regex.IsMatch(id, "^[A-Za-z0-9_-]{1,64}$")) throw new InvalidOperationException("请先填写正确的学号。");
@@ -467,6 +478,10 @@ namespace AutoElectiveOrb
 
         private void OpenCoursePicker()
         {
+            if (collectionForm != null && collectionForm.IsBatchRunning) {
+                MessageBox.Show(this, "请先停止验证码批量采集，再读取课程。", "会话保护");
+                return;
+            }
             if (backend.IsRunning)
             {
                 MessageBox.Show(this, "请先停止当前监控，再读取课程并修改换课规则。", "正在监控", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -496,7 +511,9 @@ namespace AutoElectiveOrb
             };
             using (var picker = new CoursePickerForm(snapshot, secret, store))
             {
-                if (picker.ShowDialog(this) != DialogResult.OK) return;
+                coursePickerOpen = true;
+                try { if (picker.ShowDialog(this) != DialogResult.OK) return; }
+                finally { coursePickerOpen = false; }
                 foreach (var rule in picker.CreatedRules)
                 {
                     var duplicate = courses.Rows.Cast<DataGridViewRow>().Any(row => !row.IsNewRow

@@ -14,15 +14,17 @@ namespace AutoElectiveOrb
         private Button begin;
         private NumericUpDown target;
         private NumericUpDown interval;
+        public bool IsBatchRunning { get { return process != null; } }
 
         public CaptchaCollectionForm(string dataDirectory, Func<int, int, ProcessStartInfo> createProcess)
         {
             Text = "收集验证码";
             ClientSize = new Size(520, 400);
-            StartPosition = FormStartPosition.CenterParent;
+            StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
-            MinimizeBox = false;
+            MinimizeBox = true;
+            ShowInTaskbar = true;
             Font = new Font("Microsoft YaHei UI", 9);
             var marker = Path.Combine(dataDirectory, "collect-captcha.enabled");
             var folder = Path.Combine(dataDirectory, "captcha-collection");
@@ -75,7 +77,7 @@ namespace AutoElectiveOrb
             var stop = new Button { Text = "停止采集", Location = new Point(180, 290), Size = new Size(120, 30) };
             Controls.Add(begin);
             Controls.Add(stop);
-            progress = new Label { Text = "仅单请求顺序获取；最多尝试目标张数的三倍。", Location = new Point(18, 332), Size = new Size(485, 58) };
+            progress = new Label { Text = "最小化继续采集，关闭窗口停止采集。\n仅单请求顺序获取；最多尝试目标张数的三倍。", Location = new Point(18, 332), Size = new Size(485, 58) };
             Controls.Add(progress);
             begin.Click += delegate {
                 if (process != null) return;
@@ -86,7 +88,9 @@ namespace AutoElectiveOrb
                     process.OutputDataReceived += delegate(object sender, DataReceivedEventArgs args) {
                         if (args.Data == null || !args.Data.StartsWith("COLLECT=", StringComparison.Ordinal)) return;
                         var message = args.Data.Substring(8);
-                        try { BeginInvoke(new Action(delegate { progress.Text = message; })); } catch (InvalidOperationException) { }
+                        try { BeginInvoke(new Action(delegate {
+                            if (!IsDisposed && ReferenceEquals(process, sender)) progress.Text = message;
+                        })); } catch (InvalidOperationException) { }
                     };
                     process.ErrorDataReceived += delegate { }; // Drain, never display response bodies or credentials.
                     process.Start();
@@ -102,28 +106,34 @@ namespace AutoElectiveOrb
                     if (start != null) start.EnvironmentVariables["AUTOELECTIVE_IAAA_PASSWORD"] = string.Empty;
                 }
             };
-            stop.Click += delegate { StopBatch(); progress.Text = "已停止；已保存图片保留。"; };
+            stop.Click += delegate { if (StopBatch()) progress.Text = "已停止；已保存图片保留。"; };
             poll.Tick += delegate {
                 if (process != null && process.HasExited) {
-                    process.WaitForExit();
                     if (process.ExitCode != 0) progress.Text = "采集异常结束，请检查登录、网络和磁盘。";
                     process.Dispose(); process = null;
                     poll.Stop();
                     begin.Enabled = target.Enabled = interval.Enabled = true;
                 }
             };
-            FormClosing += delegate { StopBatch(); };
+            FormClosing += delegate(object sender, FormClosingEventArgs args) { args.Cancel = !StopBatch(); };
             FormClosed += delegate { poll.Dispose(); };
         }
 
-        private void StopBatch()
+        private bool StopBatch()
         {
             poll.Stop();
             if (process != null) {
-                try { if (!process.HasExited) { process.Kill(); process.WaitForExit(3000); } } catch { }
+                try { if (!process.HasExited) process.Kill(); }
+                catch (InvalidOperationException) { } // Process already exited or never started.
+                catch (Exception error) {
+                    poll.Start();
+                    MessageBox.Show(this, "无法停止采集，请重试：" + error.Message, "采集仍在运行");
+                    return false;
+                }
                 process.Dispose(); process = null;
             }
             if (begin != null) begin.Enabled = target.Enabled = interval.Enabled = true;
+            return true;
         }
     }
 }
