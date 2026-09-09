@@ -62,6 +62,9 @@ def collect(fetch, directory, target, interval, report=print, sleep=time.sleep):
 
 
 def main():
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, 'reconfigure'):
+            stream.reconfigure(encoding='utf-8', errors='replace')
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', required=True)
     parser.add_argument('--count', type=int, default=300)

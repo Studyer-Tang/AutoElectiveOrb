@@ -71,6 +71,8 @@ class BatchTests(unittest.TestCase):
 
     def test_html_and_invalid_limits(self):
         with tempfile.TemporaryDirectory() as directory:
-            self.assertEqual(collect(lambda: Response(b'login', mime='text/html'), directory, 1, 1), 0)
+            messages = []
+            self.assertEqual(collect(lambda: Response(b'login', mime='text/html'), directory, 1, 1, messages.append), 0)
+            self.assertEqual(len(messages), 1)
             with self.assertRaises(ValueError):
                 collect(lambda: None, directory, 300, 0)
